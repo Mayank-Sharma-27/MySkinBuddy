@@ -1,15 +1,14 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
-from views import product_view
-from views.product_view import register
+from views import product_view, search_product, chat_view
 
-# app instance
 app = Flask(__name__)
 CORS(app)
 
-
-register(app, options={})
-
+# Register routes
+product_view.register(app)
+search_product.register(app)
+chat_view.register(app)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8080)

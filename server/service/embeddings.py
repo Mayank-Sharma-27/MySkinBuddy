@@ -8,6 +8,7 @@ import boto3
 from langchain_together.embeddings import TogetherEmbeddings
 import json
 from langchain_core.documents import Document
+from service.s3_client import get_s3_client 
 
 load_dotenv()
 
@@ -25,13 +26,6 @@ BUCKET_NAME = "skinsortdata"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
 
-
-def get_s3_client():
-    return boto3.client(
-        "s3",
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY
-    )
 embeddings = TogetherEmbeddings(model="togethercomputer/m2-bert-80M-32k-retrieval")
 s3_client = get_s3_client()  
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
