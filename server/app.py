@@ -6,7 +6,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Register routes
-product_view.register(app)
+product_view.register(app, {})
 search_product.register(app)
 chat_view.register(app)
 

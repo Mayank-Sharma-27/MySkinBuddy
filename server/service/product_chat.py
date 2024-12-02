@@ -29,28 +29,22 @@ FOLDER_NAME = "products"
 BATCH_SIZE = 100
         
 template = """
-You are SkinBuddy, a friendly and knowledgeable skincare expert. Provide brief, focused answers.
+You are the {product_name} by {brand_name}. Be friendly but concise. Responses must be 2-3 sentences long.
 
-For yes/no questions (e.g., "Is this good for dry skin?"), use this format:
-Answer: [Yes/No]
-Key Ingredients: [List 2-3 relevant ingredients]
-Reason: [1-2 short sentences]
+### Guidelines:
+- **Skin Concern Questions**: Answer with a quick yes/no, highlight 1-2 key ingredients, and give a brief reason.
+- **Ingredient/Product Comparison**: Focus on similarities or differences and effects.
+- **General Questions**: Direct answers only. No unnecessary details.
 
-For all other questions, provide a direct answer in 1-2 sentences, focusing only on the specific information requested.
-
-Product Information:
-Product: {product_name}
-Brand: {brand_name}
-
-Available Context:
+Your information:
 {context}
 
-Previous Conversation:
+Previous conversation:
 {chat_history}
 
 User Question: {question}
 
-Remember: Always be concise. No lengthy explanations.
+Remember: Be concise, friendly, and factual. Answer as the product.
 """
 
 ## Find percentage of ingredients
@@ -82,15 +76,21 @@ def normalize_product_name(name):
     
     return name
 
-def get_product_filter(product_name, brand_name, threshold=85):
-    normalized_product = normalize_product_name(product_name)
-    normalized_brand = normalize_product_name(brand_name)
-    print(f"Debug - Searching for: Product='{normalized_product}', Brand='{normalized_brand}'")
+def get_product_filter(product_name: str, brand_name: str):
+    # Debug the original values
+    print(f"Debug - Original values: Product='{product_name}', Brand='{brand_name}'")
+    
+    # Normalize the brand and product names
+    brand_name = brand_name.lower().strip()
+    product_name = product_name.lower().strip()
+    
+    # Debug the normalized values
+    print(f"Debug - Normalized values: Product='{product_name}', Brand='{brand_name}'")
+    
+    # Create a simple filter
     return {
-        "$and": [
-            {"brand": {"$eq": normalized_brand}},
-            {"product": {"$eq": normalized_product}}
-        ]
+        "brand": brand_name,
+        "product": product_name
     }
     
 # Store active chat sessions
@@ -146,17 +146,8 @@ def handle_chat_message(chat_id: str, user_question: str):
 
 # We'll implement these functions next
 def generate_response(chat_session: dict, user_question: str):
-    """
-    Generate a response based on the user's question and product context
-    
-    Args:
-        chat_session: The current chat session containing product info and history
-        user_question: The user's question
-        
-    Returns:
-        str: The generated response
-    """
     print("\n⌛ Analyzing product information...")
+    print(f"Debug - Searching for: Product='{chat_session['product']}', Brand='{chat_session['brand']}'")
     
     try:
         # Get product context
@@ -168,9 +159,15 @@ def generate_response(chat_session: dict, user_question: str):
             }
         )
         
-        # Get relevant documents
         context_docs = retriever.invoke(user_question.lower())
         print(f"\nFound {len(context_docs)} relevant documents")
+        
+        # Debug: Print all retrieved documents
+        print("\n🔍 Retrieved Documents:")
+        for i, doc in enumerate(context_docs):
+            print(f"\nDocument {i + 1}:")
+            print(f"Content: {doc.page_content}")
+            print(f"Metadata: {doc.metadata}")
         
         # Organize context by type
         ingredients = []
@@ -185,33 +182,58 @@ def generate_response(chat_session: dict, user_question: str):
             elif metadata.get("type") == "benefits":
                 benefits.append(chunk_text)
         
-        # Combine context
         context = (
             f"INGREDIENTS:\n{'; '.join(ingredients)}\n\n"
             f"BENEFITS:\n{'; '.join(benefits)}\n\n"
         )
         
-        # Format chat history for context
+        # Debug: Print organized context
+        print("\n📝 Organized Context:")
+        print(context)
+        
         chat_history = chat_session.get("chat_history", [])
         formatted_history = "\n".join([
             f"Question: {exchange['question']}\nAnswer: {exchange['response']}"
-            for exchange in chat_history[-3:]  # Only use last 3 exchanges for context
+            for exchange in chat_history[-3:]
         ])
         
-        # Generate response using the model
-        response = model.invoke(
+        # Debug: Print chat history
+        print("\n💬 Chat History:")
+        print(formatted_history)
+        
+        # Debug: Print final prompt
+        print("\n📋 Final Prompt:")
+        print(prompt.format(
+            context=context,
+            question=user_question,
+            chat_history=formatted_history,
+            product_name=chat_session["product"],
+            brand_name=chat_session["brand"]
+        ))
+        
+        # Generate response
+        response_stream = model.stream(
             prompt.format(
                 context=context,
                 question=user_question,
-                chat_history=formatted_history
+                chat_history=formatted_history,
+                product_name=chat_session["product"],
+                brand_name=chat_session["brand"]
             )
         )
         
-        print("\n✅ Response generated successfully")
-        return response
+        #response_text = str(response.content) if hasattr(response, 'content') else str(response)
+        
+        # Debug: Print final response
+        for chunk in response_stream:
+            if hasattr(chunk, 'content'):
+                yield chunk.content
+            else:
+                yield str(chunk)    
+            
         
     except Exception as e:
-        print(f"Error generating response: {str(e)}")
+        print(f"\n❌ Error generating response: {str(e)}")
         error_msg = "I apologize, but I'm having trouble analyzing this product right now. Please try asking your question again."
         raise Exception(error_msg) from e
 

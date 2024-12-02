@@ -33,7 +33,7 @@ load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
-BUCKET_NAME = "skinsortdata"
+BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
         
@@ -109,6 +109,10 @@ def find_product_by_name_and_brand_with_retriever(product_name: str, brand_name:
                 "source": source,
                 "score": final_score
             }
+            
+            if source:
+                image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{source.replace('json', 'jpg')}"
+                product_entry["image_url"] = image_url
             
             # Separate exact matches from similar products
             if is_exact_brand_match and product_score > 0.8:  # High product name match with exact brand

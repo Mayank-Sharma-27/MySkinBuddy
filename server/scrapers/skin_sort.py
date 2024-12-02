@@ -8,13 +8,26 @@ from botocore.exceptions import ClientError
 import re
 import os
 from dotenv import load_dotenv
-from service.s3_client import get_s3_client 
+import cloudscraper
 
 
 load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+# Create a single s3 client instance
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+)
+
+def get_s3_client():
+    """
+    Returns the singleton s3 client instance
+    """
+    return s3_client
 
 # Fetch the webpage content
 
@@ -107,7 +120,6 @@ def scrape_ingredient_data(url):
     response = requests.get(url, headers= headers)
     soup = BeautifulSoup(response.content, 'html.parser')
     explained_text = ""
-    time.sleep(1)
 
     # Extract "Explained" section
     explained_section =  soup.select_one("div.mv-content.ingredient-description")
@@ -390,6 +402,63 @@ def upload_products_data():
             except Exception as e:
                 print("Something went wrong while uploading" + str(e))
 
+def upload_image_data():
+    with open('products.json', 'r') as file:
+        products = json.load(file)
+        s3_client = get_s3_client()
+        bucket_name = "product-buddy"
+        number = 0  
+        for product in products:
+            number += 1
+            if number > 3526:
+                try:
+                    headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+                    }
+                    product_url = product['product']['product_details']['product_url']
+                    scrapper = cloudscraper.create_scraper()
+                    response = scrapper.get("https://skinsort.com" + product_url)
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    image_tag =  soup.find('img', {'fetchpriority': 'high'}) # Adjust as needed
+                    image_url = image_tag['src'] if image_tag else None
+    
+                    if image_url:
+                        image_response = requests.get(image_url)
+                        image_data = BytesIO(image_response.content)
+                        image_file_name = f"{product['product']['product_details']['product_url']}.jpg".replace('\n', '')
+                        s3_path = f"{image_file_name}"[1:]
+                        s3_client.upload_fileobj(image_data, bucket_name, s3_path)
+                        print(f"Uploaded image for {product['product']['product_details']['product_name']} to {s3_path} number {number}")
+                    else:
+                        print(f"Image not found for {product['product']['product_details']['product_name']}")
+                except Exception as e:
+                    print(f"Error uploading image for {product['product']['product_details']['product_name']}: {str(e)}")
 
-upload_products_data()
+def upload_products_data():
+    with open('products.json', 'r') as file:
+        products = json.load(file)
+        s3_client = get_s3_client()
+        bucket_name = "skinsortdata"
+        folder = "products"
+ 
+        number = 0
+        for product in products:
+            number += 1
+            if number > 3526:
+                try:
+                    url = product['product']['product_details']['product_url']
+                    data = get_product_data("https://skinsort.com" + url)
+                    file_name = f"{product['product']['product_details']['product_url']}.json".replace('\n', '')
+                    data_bytes = json.dumps(data).encode('utf-8')
+                    file_obj = BytesIO(data_bytes)
+                    s3_path = f"{file_name}"[1:]
+                    s3_client.upload_fileobj(file_obj, bucket_name, s3_path)
+                    print("Number of files uploaded: " + str(number) + " to path " + file_name)
+                except Exception as e:
+                    print("Something went wrong while uploading: " + str(e))
+ 
+# Call the upload functions
+#upload_products_data()
+upload_image_data()
+
 #upload_ingredients()

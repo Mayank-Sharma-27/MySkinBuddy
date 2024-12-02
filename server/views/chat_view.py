@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response, stream_with_context
 from service.product_chat import initialize_chat, handle_chat_message
 
 chat_view = Blueprint('chat_view', __name__)
@@ -31,8 +31,14 @@ def chat():
         return jsonify({"error": "Chat ID and message are required"}), 400
         
     try:
-        response = handle_chat_message(chat_id, message)
-        return jsonify({"response": response})
+        def generate():
+            for token in handle_chat_message(chat_id, message):
+                yield f"data: {token}\n\n"
+        
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream'
+        )        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
