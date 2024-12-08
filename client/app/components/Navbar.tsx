@@ -1,5 +1,5 @@
-'use client';
-import Link from 'next/link';
+"use client";
+import Link from "next/link";
 
 export function Navbar() {
   return (
@@ -9,23 +9,23 @@ export function Navbar() {
           <Link href="/" className="text-xl font-bold text-[#a984b2]">
             MySkinBuddy
           </Link>
-          
+
           <div className="flex space-x-4">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               className="text-gray-600 hover:text-[#a984b2] px-3 py-2"
             >
               Home
             </Link>
-            <Link 
-              href="/search" 
+            <Link
+              href="/login"
               className="text-gray-600 hover:text-[#a984b2] px-3 py-2"
             >
-              Search
+              Login
             </Link>
           </div>
         </div>
       </div>
     </nav>
   );
-} 
+}

@@ -1,3 +1,5 @@
+import { getCookieId } from '../utils/cookies';
+
 interface Product {
   product: string;
   brand: string;
@@ -6,10 +8,19 @@ interface Product {
 
 interface ProductListProps {
   products: Product[];
-  onProductSelect: (product: Product) => void;
+  onProductSelect: (product: Product, cookieId: string) => void;
 }
 
 export function ProductList({ products, onProductSelect }: ProductListProps) {
+  const handleSelect = (product: Product) => {
+    const cookieId = getCookieId();
+    if (!cookieId) {
+      console.error('Could not generate cookie ID');
+      return;
+    }
+    onProductSelect(product, cookieId);
+  };
+
   if (products.length === 0) {
     return null;
   }
@@ -21,10 +32,10 @@ export function ProductList({ products, onProductSelect }: ProductListProps) {
         {products.map((product, index) => (
           <div 
             key={index}
-            onClick={() => onProductSelect(product)}
+            onClick={() => handleSelect(product)}
             className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer flex items-center"
           >
-            <div className="w-16 h-16 flex-shrink-0">
+            <div className="w-40 h-40 flex-shrink-0">
               <img 
                 src={product.image_url || '/placeholder-product.png'}
                 alt={product.product}
@@ -34,9 +45,9 @@ export function ProductList({ products, onProductSelect }: ProductListProps) {
                 }}
               />
             </div>
-            <div className="ml-4 flex-grow">
-              <h3 className="font-semibold text-lg text-[#a984b2]">{product.product}</h3>
-              <p className="text-gray-600">Brand: {product.brand}</p>
+            <div className="ml-6 flex-grow">
+              <h3 className="font-semibold text-xl text-[#a984b2]">{product.product}</h3>
+              <p className="text-gray-600 text-lg">Brand: {product.brand}</p>
             </div>
           </div>
         ))}

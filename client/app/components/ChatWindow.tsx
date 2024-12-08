@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
+import { getCookieId } from '../utils/cookies';
 
 interface Message {
   content: string;
@@ -48,6 +48,7 @@ export function ChatWindow({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Cookie-ID': getCookieId()
         },
         body: JSON.stringify({
           chat_id: chatId,
@@ -127,17 +128,9 @@ export function ChatWindow({
     scrollToBottom();
   }, [messages]);
 
-  const containerClasses = fullPage 
-    ? "h-full" 
-    : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4";
-
-  const chatBoxClasses = fullPage
-    ? "bg-white w-full h-full flex flex-col"
-    : "bg-white rounded-lg w-full max-w-2xl h-[600px] flex flex-col";
-
   return (
-    <div className={containerClasses}>
-      <div className={chatBoxClasses}>
+    <div className={fullPage ? "h-full" : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"}>
+      <div className={fullPage ? "bg-white w-full h-full flex flex-col" : "bg-white rounded-lg w-full max-w-2xl h-[600px] flex flex-col"}>
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between bg-[#faf4f4]">
           <div className="flex items-center space-x-3">

@@ -1,67 +1,95 @@
 # MySkinBuddy
 
-MySkinBuddy is an intelligent skincare assistant that helps users manage their skincare routine and get personalized product recommendations.
-
-## Project Structure
+MySkinBuddy is an intelligent skincare assistant that helps users discover and understand skincare products through natural conversation. It uses advanced AI to provide detailed information about ingredients, benefits, and product recommendations.
 
 ## Features
 
-- Product chat interface
-- Personalized skincare recommendations
-- Brand and product analysis
+- **Product Search**: Search and discover skincare products by brand and name
+- **Interactive Chat**: Have natural conversations about skincare products and their ingredients
+- **Ingredient Analysis**: Get detailed information about skincare ingredients and their benefits
+- **Smart Recommendations**: Receive personalized product suggestions based on skin concerns
+- **Product Comparisons**: Compare different products and their ingredient compositions
 
-## Getting Started
+## Technical Architecture
 
-### Prerequisites
+### Backend (Python/Flask)
+- **Vector Database**: Pinecone for storing and retrieving product embeddings
+- **LLM Integration**: Together AI for natural language processing
+- **Storage**: AWS S3 for product and ingredient data storage
 
-- Python 3.11+
-- Node.js
-- Git
+### Frontend (Next.js)
+- **Real-time Chat**: Interactive chat interface with streaming responses
+- **Product Search**: Dynamic product search with image display
+- **Responsive Design**: Mobile-friendly interface
 
-### Backend Setup
+## Data Structure
 
-1. Navigate to the server directory: 
+### Product Data
+- Product information
+- Ingredient details
+- Benefits and concerns
+- Usage instructions
 
-2. Create and activate virtual environment:
+### Embeddings
+- Product embeddings
+- Ingredient embeddings
+- Relationship mappings
+
+## Setup
+
+1. Clone the repository
+2. Set up environment variables:
+   ```
+   TOGETHER_API_KEY=your_key
+   PINECONE_API_KEY=your_key
+   AWS_ACCESS_KEY_ID=your_key
+   AWS_SECRET_ACCESS_KEY=your_key
+   ```
 
 3. Install dependencies:
+   ```bash
+   # Backend
+   cd server
+   pip install -r requirements.txt
 
-### Frontend Setup
+   # Frontend
+   cd client
+   npm install
+   ```
 
-1. Navigate to the client directory:
+4. Run the development servers:
+   ```bash
+   # Backend
+   python run.py
 
-2. Install dependencies:
+   # Frontend
+   npm run dev
+   ```
 
-3. Run the development server:
+## API Endpoints
 
+- `/search-products`: Search for products by name and brand
+- `/chat`: Interactive product chat endpoint
+- `/product-info`: Detailed product information
 
-The frontend will be available at [http://localhost:3000](http://localhost:3000)
+## Development Guidelines
 
-## Development
+- Use consistent code formatting
+- Add appropriate type hints in Python code
+- Follow React best practices for frontend components
+- Document new API endpoints and features
 
-### Environment Setup
+## Future Enhancements
 
-Make sure to set up your `.env` files in both client and server directories. The client already includes a `.gitignore` file that handles common Next.js configurations (reference to client/.gitignore lines 1-36).
-
-### VSCode Configuration
-
-The project includes VSCode settings for Python path configuration:
-
+- Enhanced product comparison features
+- Ingredient interaction analysis
+- Personalized skincare routine recommendations
+- Integration with e-commerce platforms
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contact
-
-Mayank Sharma - [GitHub](https://github.com/Mayank-Sharma-27)
-
-Project Link: [https://github.com/Mayank-Sharma-27/MySkinBuddy](https://github.com/Mayank-Sharma-27/MySkinBuddy)
+This project is licensed under the MIT License - see the LICENSE.md file for details

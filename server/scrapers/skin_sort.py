@@ -117,7 +117,8 @@ def scrape_ingredient_data(url):
         "Accept-Encoding": "identity",
         "Connection": "keep-alive",
     }
-    response = requests.get(url, headers= headers)
+    scrapper = cloudscraper.create_scraper()
+    response = scrapper.get(url, headers= headers)
     soup = BeautifulSoup(response.content, 'html.parser')
     explained_text = ""
 
@@ -188,7 +189,7 @@ def upload_ingredients():
         ingredients = json.load(file)
 
         s3_client = get_s3_client()
-        bucket_name = "skinsortdata"
+        bucket_name = "product-buddy"
         folder = "ingredients"
 
     number = 0
@@ -196,7 +197,7 @@ def upload_ingredients():
     for ingredient in ingredients:
         # Scrape data using the provided scrape_ingredient_data function
         number = number + 1
-        if number > 25782:
+        if number > 23000:
             try:
 
             # Save the scraped data to a file
@@ -459,6 +460,6 @@ def upload_products_data():
  
 # Call the upload functions
 #upload_products_data()
-upload_image_data()
+#upload_image_data()
 
-#upload_ingredients()
+upload_ingredients()

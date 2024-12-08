@@ -109,10 +109,11 @@ def find_product_by_name_and_brand_with_retriever(product_name: str, brand_name:
                 "source": source,
                 "score": final_score
             }
-            
+            print(f"source: {source}")
             if source:
                 image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{source.replace('json', 'jpg')}"
                 product_entry["image_url"] = image_url
+                print(f"Generated image URL for {product_entry['product']}: {image_url}")
             
             # Separate exact matches from similar products
             if is_exact_brand_match and product_score > 0.8:  # High product name match with exact brand
@@ -151,6 +152,14 @@ def find_product_by_name_and_brand_with_retriever(product_name: str, brand_name:
             del result["score"]
             
         print(f"Found {len(results)} products ({len(exact_matches)} exact matches, {len(similar_products)} similar)")
+        
+        # Before returning results, log the final image URLs
+        print("\nFinal results with image URLs:")
+        for result in results:
+            print(f"Product: {result['product']}")
+            print(f"Image URL: {result.get('image_url', 'No image URL')}")
+            print("---")
+            
         return results
         
     except Exception as e:

@@ -19,6 +19,8 @@ from langchain.memory import ConversationBufferMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 import re
 from uuid import uuid4
+from datetime import datetime
+from service.s3_client import get_s3_client
 
 
 load_dotenv()
@@ -63,6 +65,7 @@ parser = StrOutputParser()
 embeddings = TogetherEmbeddings(model="togethercomputer/m2-bert-80M-32k-retrieval")
 
 memory = ConversationBufferMemory()
+s3_client = get_s3_client()
 
         
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
@@ -96,95 +99,199 @@ def get_product_filter(product_name: str, brand_name: str):
 # Store active chat sessions
 active_chats = {}
 
-def initialize_chat(product_name: str, brand_name: str):
+def get_initial_context(product_name: str, brand_name: str):
     """
-    Initialize a new chat session for a specific product
+    Get initial context for a product including its details and all its ingredients
     """
+    print(f"\n🔍 Getting initial context for {product_name} by {brand_name}")
+    
+    try:
+        # Get product document
+        product_filter = {
+            "brand": brand_name.lower(),
+            "product": product_name.lower(),
+            "type": "product"
+        }
+        
+        product_docs = pinecone_vector_store.similarity_search(
+            "",  # Empty query to get exact match
+            k=1,
+            filter=product_filter
+        )
+        
+        if not product_docs:
+            raise ValueError(f"Product not found: {product_name} by {brand_name}")
+        
+        product_doc = product_docs[0]
+        
+        # Extract ingredient names from product document
+        ingredients_text = product_doc.page_content
+        ingredients_section = ingredients_text.split("Ingredients: ")[-1].strip(".")
+        ingredient_names = [ing.strip() for ing in ingredients_section.split(",")]
+        
+        # Get ingredient documents
+        ingredient_docs = []
+        for ingredient_name in ingredient_names:
+            ingredient_filter = {
+                "ingredient_name": ingredient_name.lower(),
+                "type": "ingredient"
+            }
+            
+            matching_docs = pinecone_vector_store.similarity_search(
+                "",  # Empty query to get exact match
+                k=1,
+                filter=ingredient_filter
+            )
+            
+            if matching_docs:
+                ingredient_docs.append(matching_docs[0])
+        
+        # Organize context
+        context = {
+            "product": product_doc,
+            "ingredients": ingredient_docs
+        }
+        
+        print(f"✅ Found product and {len(ingredient_docs)} ingredients")
+        return context
+        
+    except Exception as e:
+        print(f"❌ Error getting initial context: {str(e)}")
+        raise
+
+def initialize_chat(cookie_id: str, product_name: str, brand_name: str) -> str:
+    """Initialize a new chat session for a specific product"""
     chat_id = str(uuid4())
     print(f"Initializing chat for - Product: '{product_name}', Brand: '{brand_name}'")
     
     try:
-        active_chats[chat_id] = {
+        # Get initial context
+        initial_context = get_initial_context(product_name, brand_name)
+        
+        # Create chat session data
+        chat_data = {
             "product": product_name,
             "brand": brand_name,
-            "chat_history": []
+            "created_time": datetime.utcnow().isoformat(),
+            "last_updated_time": datetime.utcnow().isoformat(),
+            "chat_history": [],
+            "preloaded_context": initial_context
         }
+        
+        # Save to S3
+        s3_key = f"cookies/{cookie_id}/{chat_id}.json"
+        s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=s3_key,
+            Body=json.dumps(chat_data),
+            ContentType='application/json'
+        )
+        
         print(f"Chat initialized with ID: {chat_id}")
         return chat_id
     except Exception as e:
         print(f"Error initializing chat: {str(e)}")
         raise
 
-def handle_chat_message(chat_id: str, user_question: str):
-    """
-    Handle a chat message and return the response
-    """
-    if chat_id not in active_chats:
-        raise ValueError("Chat session not found")
-    
-    chat_session = active_chats[chat_id]
-    
-    if user_question.lower() == "exit":
-        # TODO: Save chat history to S3 when user is signed in
-        del active_chats[chat_id]
-        return "👋 Thanks for chatting! Have a great day!"
-    
+def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
+    """Handle a chat message and return the response"""
     try:
-        response = generate_response(chat_session, user_question)
+        # Get chat data from S3
+        s3_key = f"cookies/{cookie_id}/{chat_id}.json"
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+        chat_data = json.loads(response['Body'].read().decode('utf-8'))
         
-        # Store in chat history
-        chat_session["chat_history"].append({
+        # Generate response
+        response_stream = generate_response(chat_data, user_question)
+        
+        accumulated_response = ""
+        for chunk in response_stream:
+            if chunk:
+                accumulated_response += chunk
+                yield chunk
+        
+        # Update chat history
+        chat_data["chat_history"].append({
             "question": user_question,
-            "response": response
+            "response": accumulated_response
         })
+        chat_data["last_updated_time"] = datetime.utcnow().isoformat()
         
-        return response
+        # Save updated chat data
+        s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=s3_key,
+            Body=json.dumps(chat_data),
+            ContentType='application/json'
+        )
         
     except Exception as e:
         print(f"Error handling message: {str(e)}")
         raise
 
-# We'll implement these functions next
+def get_chat_history(cookie_id: str, chat_id: str):
+    """Get chat history from S3"""
+    try:
+        s3_key = f"cookies/{cookie_id}/{chat_id}.json"
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+        chat_data = json.loads(response['Body'].read().decode('utf-8'))
+        return chat_data
+    except Exception as e:
+        print(f"Error getting chat history: {str(e)}")
+        raise
+
+def generate_similar_products_response(product_doc):
+    """
+    Generate a formatted response for similar products
+    """
+    try:
+        similar_products = find_similar_products(product_doc)
+        
+        if not similar_products:
+            return "I couldn't find any products with similar ingredients."
+            
+        # Format similar products information
+        similar_products_text = "Here are some similar products:\n\n"
+        for i, prod in enumerate(similar_products[:3], 1):  # Show top 3
+            similarity_percentage = int(prod["similarity_score"] * 100)
+            shared_ingredients_text = ", ".join(prod["shared_ingredients"][:3])  # Show first 3 shared ingredients
+            similar_products_text += (
+                f"{i}. {prod['product']} by {prod['brand']}\n"
+                f"   • {similarity_percentage}% ingredient match\n"
+                f"   • Key shared ingredients: {shared_ingredients_text}\n\n"
+            )
+        
+        return similar_products_text
+        
+    except Exception as e:
+        print(f"Error generating similar products response: {str(e)}")
+        return "I apologize, but I'm having trouble finding similar products right now."
+
 def generate_response(chat_session: dict, user_question: str):
-    print("\n⌛ Analyzing product information...")
-    print(f"Debug - Searching for: Product='{chat_session['product']}', Brand='{chat_session['brand']}'")
+    print("\n⌛ Generating response...")
     
     try:
-        # Get product context
-        product_filter = get_product_filter(chat_session["product"], chat_session["brand"])
-        retriever = pinecone_vector_store.as_retriever(
-            search_kwargs={
-                "k": 20,
-                "filter": product_filter
-            }
-        )
+        # Check if the question is about similar products
+        #if any(phrase in user_question.lower() for phrase in ["similar products", "like this", "comparable", "alternative"]):
+            #response = generate_similar_products_response(chat_session["context"]["product"])
+            #yield response
+            #return
         
-        context_docs = retriever.invoke(user_question.lower())
-        print(f"\nFound {len(context_docs)} relevant documents")
-        
-        # Debug: Print all retrieved documents
-        print("\n🔍 Retrieved Documents:")
-        for i, doc in enumerate(context_docs):
-            print(f"\nDocument {i + 1}:")
-            print(f"Content: {doc.page_content}")
-            print(f"Metadata: {doc.metadata}")
+        # Original response generation logic continues...
+        context_docs = [chat_session["context"]["product"]] + chat_session["context"]["ingredients"]
         
         # Organize context by type
         ingredients = []
-        benefits = []
         
         for doc in context_docs:
-            metadata = doc.metadata
-            chunk_text = doc.page_content
-            
-            if metadata.get("type") == "ingredient":
-                ingredients.append(chunk_text)
-            elif metadata.get("type") == "benefits":
-                benefits.append(chunk_text)
+            if doc.metadata["type"] == "ingredient":
+                ingredients.append(doc.page_content)
+            elif doc.metadata["type"] == "product":
+                product_info = doc.page_content
         
         context = (
+            f"PRODUCT INFO:\n{product_info}\n\n"
             f"INGREDIENTS:\n{'; '.join(ingredients)}\n\n"
-            f"BENEFITS:\n{'; '.join(benefits)}\n\n"
         )
         
         # Debug: Print organized context
@@ -201,16 +308,6 @@ def generate_response(chat_session: dict, user_question: str):
         print("\n💬 Chat History:")
         print(formatted_history)
         
-        # Debug: Print final prompt
-        print("\n📋 Final Prompt:")
-        print(prompt.format(
-            context=context,
-            question=user_question,
-            chat_history=formatted_history,
-            product_name=chat_session["product"],
-            brand_name=chat_session["brand"]
-        ))
-        
         # Generate response
         response_stream = model.stream(
             prompt.format(
@@ -222,16 +319,12 @@ def generate_response(chat_session: dict, user_question: str):
             )
         )
         
-        #response_text = str(response.content) if hasattr(response, 'content') else str(response)
-        
-        # Debug: Print final response
         for chunk in response_stream:
             if hasattr(chunk, 'content'):
                 yield chunk.content
             else:
                 yield str(chunk)    
             
-        
     except Exception as e:
         print(f"\n❌ Error generating response: {str(e)}")
         error_msg = "I apologize, but I'm having trouble analyzing this product right now. Please try asking your question again."
