@@ -27,7 +27,16 @@ export function ChatWindow({
   onClose 
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { content: initialMessage, isBot: true }
+    { 
+      content: `
+        <div class="flex flex-col space-y-4">
+          <img src="${imageUrl}" alt="${productName}" class="w-48 h-48 object-cover rounded-lg mx-auto" 
+               onerror="this.onerror=null; this.src='/placeholder-product.png';" />
+          ${initialMessage}
+        </div>
+      `,
+      isBot: true 
+    }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -175,9 +184,8 @@ export function ChatWindow({
                     ? 'bg-[#faf4f4] text-gray-800'
                     : 'bg-[#a984b2] text-white'
                 }`}
-              >
-                {message.content}
-              </div>
+                dangerouslySetInnerHTML={{ __html: message.content }}
+              />
             </div>
           ))}
           <div ref={messagesEndRef} />

@@ -6,6 +6,7 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/search-products": {"origins": ["http://localhost:3000"]},
     r"/start-chat": {"origins": ["http://localhost:3000"]},
+    r"/product-suggestions": {"origins": ["http://localhost:3000"]},
     r"/chat": {"origins": ["http://localhost:3000"]}
 })
 

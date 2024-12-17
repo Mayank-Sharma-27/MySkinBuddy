@@ -19,8 +19,7 @@ def start_chat():
         
     try:
         chat_id = initialize_chat(cookie_id, product, brand)
-        initial_message = f"👋 Hello! I'm  {brand}'s {product}! you can ask me anything and I will 
-        try to help you!"
+        initial_message = f"👋 Hello! I'm  {brand}'s {product}! you can ask me anything and I will try to help you!"
         
         return jsonify({
             "chat_id": chat_id,

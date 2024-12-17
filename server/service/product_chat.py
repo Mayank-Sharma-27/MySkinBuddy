@@ -1,4 +1,4 @@
-from langchain_together import ChatTogether
+from langchain_community.chat_models import ChatPerplexity
 import os
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
@@ -26,11 +26,11 @@ from service.s3_client import get_s3_client
 load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
-BUCKET_NAME = "skinsortdata"
-FOLDER_NAME = "products"
+BUCKET_NAME = "product-buddy"
+FOLDER_NAME = "chats"
 BATCH_SIZE = 100
         
-template = """
+system = """
 You are the {product_name} by {brand_name}. Be friendly but concise. Responses must be 2-3 sentences long.
 
 ### Guidelines:
@@ -44,25 +44,29 @@ Your information:
 Previous conversation:
 {chat_history}
 
-User Question: {question}
-
 Remember: Be concise, friendly, and factual. Answer as the product.
 """
 
+human = """
+User Question: {question}
+"""
+
+
+
 ## Find percentage of ingredients
 
-prompt = ChatPromptTemplate.from_template(template)
+prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
 
-api_key = os.getenv("TOGETHER_API_KEY") 
+api_key = os.getenv("PERPLEXITY_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-model = ChatTogether(api_key =api_key,
-                     model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+model = ChatPerplexity(api_key =api_key,
+                     model= "llama-3.1-sonar-small-128k-online",
                      streaming=True,
-                     callbacks=[StreamingStdOutCallbackHandler()])
+                     temperature= 2)
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("skin-buddy")
+index = pc.Index("product-buddy")
 parser = StrOutputParser()
-embeddings = TogetherEmbeddings(model="togethercomputer/m2-bert-80M-32k-retrieval")
+embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
 
 memory = ConversationBufferMemory()
 s3_client = get_s3_client()
@@ -124,35 +128,9 @@ def get_initial_context(product_name: str, brand_name: str):
         
         product_doc = product_docs[0]
         
-        # Extract ingredient names from product document
-        ingredients_text = product_doc.page_content
-        ingredients_section = ingredients_text.split("Ingredients: ")[-1].strip(".")
-        ingredient_names = [ing.strip() for ing in ingredients_section.split(",")]
-        
-        # Get ingredient documents
-        ingredient_docs = []
-        for ingredient_name in ingredient_names:
-            ingredient_filter = {
-                "ingredient_name": ingredient_name.lower(),
-                "type": "ingredient"
-            }
-            
-            matching_docs = pinecone_vector_store.similarity_search(
-                "",  # Empty query to get exact match
-                k=1,
-                filter=ingredient_filter
-            )
-            
-            if matching_docs:
-                ingredient_docs.append(matching_docs[0])
-        
-        # Organize context
         context = {
-            "product": product_doc,
-            "ingredients": ingredient_docs
+            "product": product_doc
         }
-        
-        print(f"✅ Found product and {len(ingredient_docs)} ingredients")
         return context
         
     except Exception as e:
@@ -239,33 +217,6 @@ def get_chat_history(cookie_id: str, chat_id: str):
     except Exception as e:
         print(f"Error getting chat history: {str(e)}")
         raise
-
-def generate_similar_products_response(product_doc):
-    """
-    Generate a formatted response for similar products
-    """
-    try:
-        similar_products = find_similar_products(product_doc)
-        
-        if not similar_products:
-            return "I couldn't find any products with similar ingredients."
-            
-        # Format similar products information
-        similar_products_text = "Here are some similar products:\n\n"
-        for i, prod in enumerate(similar_products[:3], 1):  # Show top 3
-            similarity_percentage = int(prod["similarity_score"] * 100)
-            shared_ingredients_text = ", ".join(prod["shared_ingredients"][:3])  # Show first 3 shared ingredients
-            similar_products_text += (
-                f"{i}. {prod['product']} by {prod['brand']}\n"
-                f"   • {similarity_percentage}% ingredient match\n"
-                f"   • Key shared ingredients: {shared_ingredients_text}\n\n"
-            )
-        
-        return similar_products_text
-        
-    except Exception as e:
-        print(f"Error generating similar products response: {str(e)}")
-        return "I apologize, but I'm having trouble finding similar products right now."
 
 def generate_response(chat_session: dict, user_question: str):
     print("\n⌛ Generating response...")

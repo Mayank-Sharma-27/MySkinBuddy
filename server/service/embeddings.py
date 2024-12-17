@@ -8,25 +8,26 @@ import boto3
 from langchain_together.embeddings import TogetherEmbeddings
 import json
 from langchain_core.documents import Document
-from service.s3_client import get_s3_client 
-
+from s3_client import get_s3_client 
+import re
 load_dotenv()
+from langchain_openai import OpenAIEmbeddings
 
 api_key = os.getenv("TOGETHER_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 model = ChatTogether(api_key =api_key,
                      model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("skin-buddy")
+index = pc.Index("product-buddy")
 parser = StrOutputParser()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
-BUCKET_NAME = "skinsortdata"
+BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
 
-embeddings = TogetherEmbeddings(model="togethercomputer/m2-bert-80M-32k-retrieval")
+embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
 s3_client = get_s3_client()  
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
@@ -41,10 +42,21 @@ def split_json_into_chunks(document_data, metadata):
             
     return chunks       
 
+def normalize_ingredient_name(name):
+    name = name.lower().strip()
+    return re.sub(r'[^a-z0-9\s]', '', name) 
+
+def normalize_product_name(name):
+    name = name.lower().strip()
+    return re.sub(r'[^a-z0-9\s]', '', name) 
+    
+
 def create_product_embeddings():
     documents = []
     total_documents = 0
     continuation_token = None
+    processed_documents = 0
+    
     try:
         while True:
             if continuation_token:
@@ -56,103 +68,56 @@ def create_product_embeddings():
             for item in response.get("Contents", []):
                 total_documents += 1
                 
+                # Skip if document count is less than or equal to 1500
+                if total_documents <= 0:
+                    continue
+                
                 key = item["Key"]
                 if key.endswith(".json"):
-                    # Get the JSON content
+                    processed_documents += 1
+                    if processed_documents <= 0:
+                        continue
+                    
+                    print(f"Processing document {processed_documents}: {key}")
+                    # Rest of the processing logic...
                     json_object = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
                     document_data = json.loads(json_object["Body"].read().decode("utf-8"))
                     
-                    # Extract product and brand from the document data
-                    product_name = document_data.get('product', '')
-                    brand_name = document_data.get('brand', '')
+                    product_name = normalize_product_name(key.split('/')[2].replace('.json', '').replace('-', ' '))
+                    brand_name = normalize_product_name(key.split('/')[1].replace('-', ' '))
                     
-                    # Get ingredient names from ingredients_overview
-                    ingredients = [ing['ingredient_name'] for ing in document_data.get('ingredients_overview', [])]
+                    ingredients_data = document_data.get('ingredients_overview', [])
                     
-                    # Create the product document
-                    page_content = f"Product: {product_name}. Brand: {brand_name}. Ingredients: {', '.join(ingredients)}."
-                    doc = Document(
-                        page_content=page_content,
-                        metadata={
-                            "product": product_name,
-                            "brand": brand_name,
-                            "type": "product"
-                        }
-                    )
+                    # Create product embeddings
+                    max_ingredients_per_chunk = 1000
+                    ingredients = [normalize_ingredient_name(ing['ingredient_name']) for ing in ingredients_data]
                     
-                    print(f"Processing product: {product_name}")
-                    pinecone_vector_store.add_documents([doc])
+                    for i in range(0, len(ingredients), max_ingredients_per_chunk):
+                        chunk = ingredients[i:i + max_ingredients_per_chunk]
+                        chunk_text = ', '.join(chunk)
+                        page_content = (
+                            f"Product: {product_name}. Brand: {brand_name}. Ingredients : {chunk_text}."
+                        )
+                        doc = Document(
+                            page_content=page_content,
+                            metadata={
+                                "product": product_name,
+                                "brand": brand_name,
+                                "type": "product",
+                                "source": key
+                            }
+                        )
+                        print(f"Processing product: {product_name}")
+                        pinecone_vector_store.add_documents([doc])
                 
             continuation_token = response.get("NextContinuationToken")       
             if not continuation_token:
                 break
-        print(f"Total products processed and uploaded: {total_documents}")    
+        print(f"Total products processed and uploaded: {processed_documents}")    
             
     except Exception as e:
-        print(f"Error processing products: {e}")
+        print(f"Error processing products: {e} with {processed_documents} documents")
 
-def create_ingredient_embeddings():
-    total_documents = 0
-    continuation_token = None
-    bucket_name = "product-buddy"
-    folder_name = "ingredients"
-    
-    try:
-        while True:
-            if continuation_token:
-                print("Fetching next page of objects..")
-                response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=folder_name, ContinuationToken=continuation_token)
-            else:
-                response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=folder_name)
-            
-            for item in response.get("Contents", []):
-                total_documents += 1
-                
-                key = item["Key"]
-                if key.endswith(".json"):
-                    # Get the JSON content
-                    json_object = s3_client.get_object(Bucket=bucket_name, Key=key)
-                    ingredient_data = json.loads(json_object["Body"].read().decode("utf-8"))
-                    
-                    # Extract ingredient name from the file path
-                    file_parts = key.split('/')
-                    ingredient_name = file_parts[-2] if len(file_parts) > 2 else "Unknown"
-                    
-                    # Format the content sections
-                    uses = ', '.join(ingredient_data.get('use', []))
-                    explained = ingredient_data.get('Explained', '')
-                    concerns = ingredient_data.get('Concerns', [])
-                    concerns_text = '. '.join(concerns) if concerns else ''
-                    alt_names = ', '.join(ingredient_data.get('AltNames', []))
-                    
-                    # Create the page content with proper formatting
-                    page_content = (
-                        f"Ingredient: {ingredient_name}.\n"
-                        f"Uses: {uses}.\n"
-                        f"Details: {explained}\n"
-                        f"Concerns: {concerns_text}\n"
-                        f"Alternative Names: {alt_names}."
-                    )
-                    
-                    # Create the Document object
-                    doc = Document(
-                        page_content=page_content,
-                        metadata={
-                            "ingredient_name": ingredient_name,
-                            "type": "ingredient"
-                        }
-                    )
-                    
-                    print(f"Processing ingredient: {ingredient_name}")
-                    pinecone_vector_store.add_documents([doc])
-                
-            continuation_token = response.get("NextContinuationToken")       
-            if not continuation_token:
-                break
-        print(f"Total ingredients processed and uploaded: {total_documents}")    
-            
-    except Exception as e:
-        print(f"Error processing ingredients: {e}")
-
-create_product_embeddings()                        
+create_product_embeddings()
+#create_ingredient_embeddings()
                         
