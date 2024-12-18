@@ -25,6 +25,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchResults
 from duckduckgo_search import DDGS
 import google.api_core.exceptions
+from service.chat_service import get_chat, save_chat;
 
 duckduckgo = DDGS(timeout=20)
 
@@ -161,7 +162,7 @@ def get_initial_context(product_name: str, brand_name: str):
         print(f"❌ Error getting initial context: {str(e)}")
         raise
 
-def initialize_chat(cookie_id: str, product_name: str, brand_name: str) -> str:
+def initialize_chat(cookie_id: str, product_name: str, brand_name: str, image_url: str) -> str:
     """Initialize a new chat session for a specific product"""
     chat_id = str(uuid4())
     print(f"Initializing chat for - Product: '{product_name}', Brand: '{brand_name}'")
@@ -174,6 +175,7 @@ def initialize_chat(cookie_id: str, product_name: str, brand_name: str) -> str:
         chat_data = {
             "product": product_name,
             "brand": brand_name,
+            "image_url": image_url,
             "created_time": datetime.utcnow().isoformat(),
             "last_updated_time": datetime.utcnow().isoformat(),
             "chat_history": [],
@@ -181,13 +183,7 @@ def initialize_chat(cookie_id: str, product_name: str, brand_name: str) -> str:
         }
         
         # Save to S3
-        s3_key = f"chats/{cookie_id}/{chat_id}.json"
-        s3_client.put_object(
-            Bucket=BUCKET_NAME,
-            Key=s3_key,
-            Body=json.dumps(chat_data),
-            ContentType='application/json'
-        )
+        save_chat(cookie_id, chat_id, chat_data)
         
         print(f"Chat initialized with ID: {chat_id}")
         return chat_id
@@ -199,10 +195,7 @@ def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
     """Handle a chat message and return the response"""
     try:
         # Get chat data from S3
-        s3_key = f"chats/{cookie_id}/{chat_id}.json"
-        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
-        chat_data = json.loads(response['Body'].read().decode('utf-8'))
-        print(chat_data)
+        chat_data = get_chat(cookie_id, chat_id)
         
         # Generate response
         accumulated_response = ""
@@ -221,15 +214,7 @@ def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
             "response": accumulated_response
         })
         chat_data["last_updated_time"] = datetime.utcnow().isoformat()
-        
-        # Save updated chat data
-        s3_client.put_object(
-            Bucket=BUCKET_NAME,
-            Key=s3_key,
-            Body=json.dumps(chat_data),
-            ContentType='application/json'
-        )
-        
+        save_chat(cookie_id, chat_id, chat_data)     
     except Exception as e:
         print(f"Error handling message: {str(e)}")
         raise
@@ -237,9 +222,7 @@ def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
 def get_chat_history(cookie_id: str, chat_id: str):
     """Get chat history from S3"""
     try:
-        s3_key = f"cookies/{cookie_id}/{chat_id}.json"
-        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
-        chat_data = json.loads(response['Body'].read().decode('utf-8'))
+        chat_data = get_chat(cookie_id, chat_id)
         return chat_data
     except Exception as e:
         print(f"Error getting chat history: {str(e)}")
@@ -408,10 +391,3 @@ def generate_response(chat_session: dict, user_question: str):
             "content": str(e),
             "sources": []
         }
-
-def save_chat_history(user_id: str, chat_session: dict):
-    """
-    Save chat history to S3 for signed-in users
-    """
-    # TODO: Implement S3 storage
-    pass

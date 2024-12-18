@@ -66,7 +66,8 @@ export function ProductAutocomplete({ onSelect, placeholder = "Search for a prod
         },
         body: JSON.stringify({
           product: product,
-          brand: brand
+          brand: brand,
+          image_url: imageUrl
         })
       });
 

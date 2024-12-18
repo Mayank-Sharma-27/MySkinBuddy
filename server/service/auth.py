@@ -9,6 +9,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import jwt
 from typing import Optional, Dict
+from .cookie_service import CookieService
 
 load_dotenv()
 
@@ -25,6 +26,7 @@ class AuthService:
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
         )
+        self.cookie_service = CookieService()
 
     def _generate_cookie_id(self) -> str:
         """Generate a unique cookie ID"""
@@ -106,9 +108,10 @@ class AuthService:
             cookie_id = self._generate_cookie_id()
             cookie_data = {
                 "userEmail": email,
-                "isLoggedIn": True
+                "isLoggedIn": True,
+                "messageCount": 0  # Initialize message count
             }
-            self._save_to_s3(f"cookies/{cookie_id}/info.json", cookie_data)
+            self.cookie_service.save_cookie_data(cookie_id, cookie_data)
             
             # Generate JWT token
             token = self._create_jwt_token(email)
@@ -144,9 +147,10 @@ class AuthService:
             cookie_id = self._generate_cookie_id()
             cookie_data = {
                 "userEmail": email,
-                "isLoggedIn": True
+                "isLoggedIn": True,
+                "messageCount": 0  # Initialize message count
             }
-            self._save_to_s3(f"cookies/{cookie_id}/info.json", cookie_data)
+            self.cookie_service.save_cookie_data(cookie_id, cookie_data)
             
             # Generate JWT token
             token = self._create_jwt_token(email)
@@ -183,7 +187,7 @@ class AuthService:
                 "userEmail": email,
                 "isLoggedIn": True
             }
-            self._save_to_s3(f"cookies/{cookie_id}/info.json", cookie_data)
+            self._save_to_s3(f"cookies/{cookie_id}/user_info.json", cookie_data)
             
             # Generate JWT token
             token = self._create_jwt_token(email)
@@ -201,7 +205,7 @@ class AuthService:
     def verify_cookie(self, cookie_id: str) -> Optional[str]:
         """Verify cookie and return user email if valid"""
         try:
-            cookie_data = self._get_from_s3(f"cookies/{cookie_id}/info.json")
+            cookie_data = self.cookie_service.get_cookie_data(cookie_id)
             if cookie_data and cookie_data.get("isLoggedIn"):
                 return cookie_data["userEmail"]
             return None
