@@ -16,6 +16,7 @@ from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 import time
 from pinecone import Pinecone, ServerlessSpec
 import re
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 load_dotenv()
 
 api_key = os.getenv("TOGETHER_API_KEY") 
@@ -23,10 +24,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 model = ChatTogether(api_key =api_key,
                      model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy")
+index = pc.Index("product-buddy-google")
 
 parser = StrOutputParser()
-embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 load_dotenv()
@@ -205,10 +206,9 @@ def get_product_suggestions(query: str, max_suggestions: int = 5):
         query_embedding = embeddings.embed_query(search_query)
         
         # Search using the embedded query
-        search_results = pinecone_vector_store.similarity_search_by_vector_with_score(
-            embedding=query_embedding,
-            k=20,  # Get more results for better filtering
-            filter={"type": "product"}
+        search_results = pinecone_vector_store.similarity_search_with_relevance_scores(
+            search_query,
+            k=20
         )
 
         suggestions = []

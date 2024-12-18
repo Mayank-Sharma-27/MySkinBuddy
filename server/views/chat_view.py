@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request, Response, stream_with_context
 from service.product_chat import initialize_chat, handle_chat_message
 from service.product_chat import get_chat_history
+import json
 
 chat_view = Blueprint('chat_view', __name__)
 
@@ -31,35 +32,76 @@ def start_chat():
 
 @chat_view.route('/chat', methods=['POST'])
 def chat():
-    data = request.get_json()
-    chat_id = data.get('chat_id')
-    message = data.get('message')
-    cookie_id = request.headers.get('X-Cookie-ID')
-    
-    if not chat_id or not message:
-        return jsonify({"error": "Chat ID and message are required"}), 400
-    
-    if not cookie_id:
-        return jsonify({"error": "Cookie ID is required"}), 400
-        
     try:
-        # Save the user message first
+        data = request.get_json()
+        cookie_id = request.headers.get('X-Cookie-ID')
+        chat_id = data.get('chat_id')
+        message = data.get('message')
         
         def generate():
-            accumulated_response = ""
-            for token in handle_chat_message(cookie_id, chat_id, message):
-                accumulated_response += token
-                yield f"data: {token}\n\n"
-            
-            # Save the complete assistant respon
+            try:
+                current_response = ""
+                header_sent = False
+                
+                for chunk in handle_chat_message(cookie_id, chat_id, message):
+                    print(f"\n=== Debug - Chunk Type: {type(chunk)} ===")
+                    print(f"Debug - Raw chunk content: {chunk}")
+                    
+                    if isinstance(chunk, dict):
+                        print(f"Debug - Dict keys: {chunk.keys()}")
+                        if chunk.get('type') == 'final':
+                            print(f"Debug - Final chunk detected with sources: {chunk.get('sources', [])}")
+                            formatted_response = {
+                                'content': current_response,
+                                'sources': chunk.get('sources', []),
+                                'type': 'final'
+                            }
+                            print(f"Debug - Sending final formatted response: {formatted_response}")
+                    else:
+                        # For regular content chunks
+                        content = str(chunk)
+                        print(f"Debug - Processing content chunk: {content[:50]}...")
+                        
+                        # Clean up content and handle headers
+                        if not header_sent and "###" in content:
+                            content = content.split("###")[-1].strip()
+                            header_sent = True
+                        elif header_sent and "###" in content:
+                            content = content.split("###")[-1].strip()
+                        elif "Main Response:" in content:
+                            # Skip duplicate "Main Response:" text
+                            content = content.replace("Main Response:", "").strip()
+                        
+                        # Only add new content
+                        if content.strip():
+                            formatted_response = {
+                                'content': content
+                            }
+                            yield f"data: {json.dumps(formatted_response)}\n\n"
+                    
+                    if isinstance(chunk, dict) and chunk.get('type') == 'final':
+                        yield f"data: {json.dumps(formatted_response)}\n\n"
+                
+            except Exception as e:
+                print(f"Error in generate: {str(e)}")
+                yield f"data: {json.dumps({'content': f'Error: {str(e)}' })}\n\n"
         
-        return Response(
+        response = Response(
             stream_with_context(generate()),
-            mimetype='text/event-stream'
-        )        
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Content-Type': 'text/event-stream',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
+                'Access-Control-Allow-Origin': '*'
+            }
+        )
+        return response
+        
     except Exception as e:
-        print(f"Error in chat: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in chat endpoint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @chat_view.route('/chat-history/<chat_id>', methods=['GET'])
 def get_chat(chat_id):

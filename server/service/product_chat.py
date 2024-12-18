@@ -21,6 +21,12 @@ import re
 from uuid import uuid4
 from datetime import datetime
 from service.s3_client import get_s3_client
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.tools import DuckDuckGoSearchResults
+from duckduckgo_search import DDGS
+import google.api_core.exceptions
+
+duckduckgo = DDGS(timeout=20)
 
 
 load_dotenv()
@@ -31,20 +37,30 @@ FOLDER_NAME = "chats"
 BATCH_SIZE = 100
         
 system = """
-You are the {product_name} by {brand_name}. Be friendly but concise. Responses must be 2-3 sentences long.
+You are the {product_name} by {brand_name}. Be friendly but concise.:
 
 ### Guidelines:
-- **Skin Concern Questions**: Answer with a quick yes/no, highlight 1-2 key ingredients, and give a brief reason.
-- **Ingredient/Product Comparison**: Focus on similarities or differences and effects.
-- **General Questions**: Direct answers only. No unnecessary details.
+- 
+    - Answer the question directly
+    - Compare products/ingredients
+    - Mention specific prices only if asked by the user.
+    - Use **ingredient** formatting
+    - Skin Concerns: Quick yes/no + key ingredients
+    - Product Comparisons: Include prices and shared ingredients
+    - Alternatives: Specific products with prices and links
+    - General: Direct answers only
 
 Your information:
 {context}
 
+External research results:
+{search_results}
+
 Previous conversation:
 {chat_history}
 
-Remember: Be concise, friendly, and factual. Answer as the product.
+Current question: {question}
+   
 """
 
 human = """
@@ -59,10 +75,14 @@ prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)]
 
 api_key = os.getenv("PERPLEXITY_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-model = ChatPerplexity(api_key =api_key,
-                     model= "llama-3.1-sonar-small-128k-online",
-                     streaming=True,
-                     temperature= 2)
+model = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    temperature=0.3,
+    max_tokens=None,
+    timeout=30,
+    max_retries=3,
+    streaming=True
+)
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 index = pc.Index("product-buddy")
 parser = StrOutputParser()
@@ -70,9 +90,9 @@ embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
 
 memory = ConversationBufferMemory()
 s3_client = get_s3_client()
-
-        
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
+
+
 
 def normalize_product_name(name):
     name = name.lower()
@@ -128,8 +148,12 @@ def get_initial_context(product_name: str, brand_name: str):
         
         product_doc = product_docs[0]
         
+        # Convert Document object to serializable dict
         context = {
-            "product": product_doc
+            "product": {
+                "page_content": product_doc.page_content,
+                "metadata": product_doc.metadata
+            }
         }
         return context
         
@@ -157,7 +181,7 @@ def initialize_chat(cookie_id: str, product_name: str, brand_name: str) -> str:
         }
         
         # Save to S3
-        s3_key = f"cookies/{cookie_id}/{chat_id}.json"
+        s3_key = f"chats/{cookie_id}/{chat_id}.json"
         s3_client.put_object(
             Bucket=BUCKET_NAME,
             Key=s3_key,
@@ -175,18 +199,21 @@ def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
     """Handle a chat message and return the response"""
     try:
         # Get chat data from S3
-        s3_key = f"cookies/{cookie_id}/{chat_id}.json"
+        s3_key = f"chats/{cookie_id}/{chat_id}.json"
         response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
         chat_data = json.loads(response['Body'].read().decode('utf-8'))
+        print(chat_data)
         
         # Generate response
-        response_stream = generate_response(chat_data, user_question)
-        
         accumulated_response = ""
-        for chunk in response_stream:
-            if chunk:
-                accumulated_response += chunk
-                yield chunk
+        for chunk in generate_response(chat_data, user_question):
+            if isinstance(chunk, dict):
+                content = chunk.get('content', '')
+            else:
+                content = str(chunk)
+                
+            accumulated_response += content
+            yield content
         
         # Update chat history
         chat_data["chat_history"].append({
@@ -217,69 +244,170 @@ def get_chat_history(cookie_id: str, chat_id: str):
     except Exception as e:
         print(f"Error getting chat history: {str(e)}")
         raise
+def get_search_results(user_question: str, context: str, chat_history: str = ""):
+    try:
+        search_prompt = """Based on the following information, generate ONE specific search query to find additional relevant information.
+        
+        Context from product: {context}
+        Previous conversation: {chat_history}
+        Current question: {user_question}
+        
+        Requirements:
+        1. For product comparison or alternative questions:
+           - Include key ingredients from the original product in the search
+           - Include the product category (e.g., serum, moisturizer, mask)
+           - Include price comparison terms if mentioned
+        2. Focus ONLY on finding information that is NOT already covered in the context or chat history
+        3. Make the query specific and targeted
+        4. Include the product type and main ingredients, but avoid the brand name
+        5. Only output the search query itself - no explanations
+        6. If the question can be fully answered with existing context, output: "NO_SEARCH_NEEDED"
+        """
+        
+        try:
+            # Generate the search query using the model
+            model_search = model.invoke(search_prompt.format(
+                context=context,
+                user_question=user_question,
+                chat_history=chat_history
+            ))
+            search_query = model_search.content.strip().replace("```", "").replace('"', '')
+        except Exception as e:
+            print(f"⚠️ Model error, using fallback search: {str(e)}")
+            # Fallback to basic keyword search
+            keywords = user_question.lower().split()
+            search_query = " ".join([w for w in keywords if len(w) > 3])
+        
+        if search_query == "NO_SEARCH_NEEDED":
+            print("ℹ️ No additional search needed - sufficient context available")
+            return ""
+        
+        print(f"🔎 Generated search query: {search_query}")
+        
+        # Get search results from DuckDuckGo with retry
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Convert generator to list so we can use it multiple times
+                search_results = list(duckduckgo.text(search_query, max_results=5))
+                
+                
+                # Now we can safely use search_results multiple times
+                # Both for URL extraction and formatting
+                return search_results
+                
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    print(f"⚠ Search error after {max_retries} attempts: {str(e)}")
+                    return "Unable to fetch search results at this time."
+                time.sleep(1)
+                
+    except Exception as e:
+        print(f"❌ Critical error in get_search_results: {str(e)}")
+        return "Unable to process search request at this time."
+        return "Unable to fetch search results at this time."
+    
+def extract_urls_from_search_results(search_results) -> list:
+    """Extract URLs from search results
+    
+    Args:
+        search_results: List of dictionaries containing search results with 'href' URLs
+        
+    Returns:
+        list: List of URLs from the search results
+    """   
+    print("\n=== URL Extraction Start ===")
+    print(f"Input search_results type: {type(search_results)}")
+    print(f"Input search_results: {search_results}")
+    
+    # Handle if search_results is None or not a list
+    if not search_results or not isinstance(search_results, list):
+        print("❌ Search results is empty or not a list")
+        return []
+        
+    # Extract URLs, ensuring each result is a dictionary
+    urls = [result['href'] for result in search_results 
+            if isinstance(result, dict) and 'href' in result]
+    
+    print(f"✅ Extracted URLs: {urls}")
+    print("=== URL Extraction End ===\n")
+            
+    return urls
 
 def generate_response(chat_session: dict, user_question: str):
     print("\n⌛ Generating response...")
     
     try:
-        # Check if the question is about similar products
-        #if any(phrase in user_question.lower() for phrase in ["similar products", "like this", "comparable", "alternative"]):
-            #response = generate_similar_products_response(chat_session["context"]["product"])
-            #yield response
-            #return
+        # Get the product context from preloaded context
+        product_doc = chat_session["preloaded_context"]["product"]
+        product_info = product_doc["page_content"]
         
-        # Original response generation logic continues...
-        context_docs = [chat_session["context"]["product"]] + chat_session["context"]["ingredients"]
+        # Extract ingredients from the product info
+        ingredients_start = product_info.find("Ingredients :") + len("Ingredients :")
+        product_details = product_info[:ingredients_start].strip()
+        ingredients_list = product_info[ingredients_start:].strip()
         
-        # Organize context by type
-        ingredients = []
-        
-        for doc in context_docs:
-            if doc.metadata["type"] == "ingredient":
-                ingredients.append(doc.page_content)
-            elif doc.metadata["type"] == "product":
-                product_info = doc.page_content
-        
+        # Build the context string with separated product info and ingredients
         context = (
-            f"PRODUCT INFO:\n{product_info}\n\n"
-            f"INGREDIENTS:\n{'; '.join(ingredients)}\n\n"
+            f"PRODUCT INFO:\n{product_details}\n\n"
+            f"INGREDIENTS:\n{ingredients_list}\n\n"
         )
         
-        # Debug: Print organized context
-        print("\n📝 Organized Context:")
-        print(context)
-        
+        # Format chat history with clear question-answer pairs
         chat_history = chat_session.get("chat_history", [])
         formatted_history = "\n".join([
-            f"Question: {exchange['question']}\nAnswer: {exchange['response']}"
-            for exchange in chat_history[-3:]
+            f"Previous Question: {exchange['question']}\n"
+            f"Previous Answer: {exchange['response']}\n"
+            for exchange in chat_history[-3:]  # Keep last 3 exchanges for context
         ])
-        
-        # Debug: Print chat history
-        print("\n💬 Chat History:")
         print(formatted_history)
-        
-        # Generate response
-        response_stream = model.stream(
-            prompt.format(
-                context=context,
-                question=user_question,
-                chat_history=formatted_history,
-                product_name=chat_session["product"],
-                brand_name=chat_session["brand"]
-            )
+        search_results = get_search_results(
+            user_question=user_question, 
+            context=context,
+            chat_history=formatted_history
+        )
+         # Debug print
+        # Extract sources before sending to model
+        sources = extract_urls_from_search_results(search_results)
+        print(f"Debug - Sending sources first: {sources}")
+        search_result = "\n\n".join([
+                    f"Product Information {i + 1}:\n"
+                    f"Title: {result['title']}\n"
+                    f"Description: {result['body']}\n"
+                    f"URL: {result['href']}"
+                    for i, result in enumerate(search_results)
+                    if result['body'].strip()
+                ])
+        # Debug the full prompt being sent to Perplexity
+        full_prompt = prompt.format(
+            context=context,
+            question=user_question,
+            chat_history=formatted_history,
+            product_name=chat_session["product"],
+            brand_name=chat_session["brand"],
+            search_results=search_result
         )
         
-        for chunk in response_stream:
-            if hasattr(chunk, 'content'):
-                yield chunk.content
-            else:
-                yield str(chunk)    
+        # Then start streaming content
+        
+        for chunk in model.stream(full_prompt):
             
+            content = chunk.content
+            
+            yield {
+                "content": content
+                }
+
+        yield {
+            "content": ", ".join(sources) if sources else ""
+        }
     except Exception as e:
         print(f"\n❌ Error generating response: {str(e)}")
-        error_msg = "I apologize, but I'm having trouble analyzing this product right now. Please try asking your question again."
-        raise Exception(error_msg) from e
+        yield {
+            "type": "error",
+            "content": str(e),
+            "sources": []
+        }
 
 def save_chat_history(user_id: str, chat_session: dict):
     """

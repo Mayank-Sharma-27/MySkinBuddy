@@ -12,13 +12,14 @@ from s3_client import get_s3_client
 import re
 load_dotenv()
 from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 api_key = os.getenv("TOGETHER_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 model = ChatTogether(api_key =api_key,
                      model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy")
+index = pc.Index("product-buddy-google")
 parser = StrOutputParser()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -27,7 +28,7 @@ BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
 
-embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 s3_client = get_s3_client()  
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
