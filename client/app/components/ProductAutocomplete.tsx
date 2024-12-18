@@ -51,7 +51,7 @@ export function ProductAutocomplete({ onSelect, placeholder = "Search for a prod
     fetchSuggestions();
   }, [debouncedQuery]);
 
-  const handleProductSelect = async (product: string, brand: string) => {
+  const handleProductSelect = async (product: string, brand: string, imageUrl: string) => {
     try {
       const cookieId = getCookieId();
       if (!cookieId) {
@@ -76,7 +76,16 @@ export function ProductAutocomplete({ onSelect, placeholder = "Search for a prod
       }
 
       const data = await response.json();
-      router.push(`/chat?id=${data.chat_id}`);
+      
+      const chatParams = new URLSearchParams({
+        chatId: data.chat_id,
+        product: encodeURIComponent(product),
+        brand: encodeURIComponent(brand),
+        message: data.message,
+        imageUrl: encodeURIComponent(imageUrl)
+      });
+
+      router.push(`/chat?${chatParams.toString()}`);
     } catch (error) {
       console.error('Error starting chat:', error);
     }
@@ -107,7 +116,11 @@ export function ProductAutocomplete({ onSelect, placeholder = "Search for a prod
               className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
               onClick={async () => {
                 try {
-                  await handleProductSelect(suggestion.product, suggestion.brand);
+                  await handleProductSelect(
+                    suggestion.product, 
+                    suggestion.brand,
+                    suggestion.image_url || ''
+                  );
                   setQuery('');
                   setIsOpen(false);
                 } catch (error) {

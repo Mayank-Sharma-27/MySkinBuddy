@@ -1,13 +1,32 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { getCookieId } from '../utils/cookies';
+import { ChatMessage } from './ChatMessage';
 
 interface Message {
   content: string;
   isBot: boolean;
+  sources?: Array<{
+    title: string;
+    url: string;
+  }>;
 }
 
-interface ChatWindowProps {
+interface StreamResponse {
+  content: string;
+  sources: Array<{
+    title: string;
+    url: string;
+  }>;
+}
+
+interface StreamChunk {
+  content: string;
+  sources: Array<{url: string; title: string}>;
+  type?: 'final';
+}
+
+export function ChatWindow({ chatId, initialMessage, productName, brandName, imageUrl, fullPage = false, onClose }: {
   chatId: string;
   initialMessage: string;
   productName: string;
@@ -15,35 +34,15 @@ interface ChatWindowProps {
   imageUrl: string;
   fullPage?: boolean;
   onClose?: () => void;
-}
-
-export function ChatWindow({ 
-  chatId, 
-  initialMessage, 
-  productName, 
-  brandName, 
-  imageUrl, 
-  fullPage = false,
-  onClose 
-}: ChatWindowProps) {
+}) {
   const [messages, setMessages] = useState<Message[]>([
-    { 
-      content: `
-        <div class="flex flex-col space-y-4">
-          <img src="${imageUrl}" alt="${productName}" class="w-48 h-48 object-cover rounded-lg mx-auto" 
-               onerror="this.onerror=null; this.src='/placeholder-product.png';" />
-          ${initialMessage}
-        </div>
-      `,
-      isBot: true 
-    }
+    { content: initialMessage, isBot: true }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  const messageContainerRef = useRef<null | HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
@@ -53,59 +52,72 @@ export function ChatWindow({
     setIsLoading(true);
 
     try {
+      setMessages(prev => [...prev, { content: '', isBot: true, sources: [] }]);
+
       const response = await fetch('http://localhost:8080/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Cookie-ID': getCookieId()
+          'X-Cookie-ID': getCookieId(),
         },
         body: JSON.stringify({
           chat_id: chatId,
           message: userMessage,
-          product_name: productName,
-          brand_name: brandName,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      // Add initial bot message
-      setMessages(prev => [...prev, { content: '', isBot: true }]);
+      if (!response.ok) throw new Error('Failed to send message');
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No response stream available');
 
+      const decoder = new TextDecoder();
+      let buffer = '';
       let accumulatedContent = '';
 
       while (true) {
         const { done, value } = await reader.read();
-        
-        if (done) {
-          // Final update with accumulated content
-          setMessages(prev => {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1].content = accumulatedContent;
-            return newMessages;
-          });
-          break;
-        }
+        if (done) break;
 
-        const chunk = new TextDecoder().decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const content = line.slice(6);
-            accumulatedContent += content;
-            
-            // Update message with accumulated content
-            setMessages(prev => {
-              const newMessages = [...prev];
-              newMessages[newMessages.length - 1].content = accumulatedContent;
-              return newMessages;
-            });
+        buffer += decoder.decode(value, { stream: true });
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop() || '';
+
+        for (const message of messages) {
+          if (message.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(message.slice(6));
+              console.log('Received chunk:', data);
+
+              if (data.type === 'final') {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1] = {
+                    content: accumulatedContent,
+                    isBot: true,
+                    sources: data.sources?.map(url => ({
+                      title: new URL(url).hostname,
+                      url: url
+                    }))
+                  };
+                  return newMessages;
+                });
+              } else {
+                if (data.content?.trim()) {
+                  accumulatedContent += data.content;
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    newMessages[newMessages.length - 1] = {
+                      ...newMessages[newMessages.length - 1],
+                      content: accumulatedContent
+                    };
+                    return newMessages;
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error parsing message:', error);
+            }
           }
         }
       }
@@ -114,28 +126,43 @@ export function ChatWindow({
       console.error('Chat error:', error);
       setMessages(prev => [...prev, { 
         content: 'Sorry, I encountered an error. Please try again.',
-        isBot: true 
+        isBot: true,
+        sources: []
       }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Auto-scroll function
-  const scrollToBottom = () => {
-    if (messageContainerRef.current) {
-      const { scrollHeight, clientHeight } = messageContainerRef.current;
-      messageContainerRef.current.scrollTo({
-        top: scrollHeight - clientHeight,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  // Scroll on new messages or content updates
+  // Auto-scroll effect
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const formatContent = (content: string) => {
+    // Check if content is a comma-separated list of URLs
+    if (content.includes('http') && content.includes(',')) {
+      const links = content.split(',').map(url => url.trim());
+      return (
+        <div className="flex flex-col gap-2">
+          {links.map((url, index) => (
+            <a 
+              key={index}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-700 underline break-all"
+            >
+              {new URL(url).hostname}
+            </a>
+          ))}
+        </div>
+      );
+    }
+    
+    // Regular content
+    return <span>{content}</span>;
+  };
 
   return (
     <div className={fullPage ? "h-full" : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"}>
@@ -143,13 +170,14 @@ export function ChatWindow({
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between bg-[#faf4f4]">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+            <div className="w-12 h-12 rounded-lg overflow-hidden">
               <img 
-                src={imageUrl}
+                src={imageUrl} 
                 alt={productName}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.src = '/placeholder-product.png';
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/placeholder-product.png';
                 }}
               />
             </div>
@@ -159,34 +187,21 @@ export function ChatWindow({
             </div>
           </div>
           {!fullPage && onClose && (
-            <button 
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
               ×
             </button>
           )}
         </div>
 
         {/* Messages */}
-        <div 
-          ref={messageContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
-        >
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message, index) => (
-            <div
+            <ChatMessage
               key={index}
-              className={`flex ${message.isBot ? 'justify-start' : 'justify-end'}`}
-            >
-              <div
-                className={`max-w-[80%] p-3 rounded-lg ${
-                  message.isBot
-                    ? 'bg-[#faf4f4] text-gray-800'
-                    : 'bg-[#a984b2] text-white'
-                }`}
-                dangerouslySetInnerHTML={{ __html: message.content }}
-              />
-            </div>
+              message={message.content}
+              isUser={!message.isBot}
+              sources={message.sources}
+            />
           ))}
           <div ref={messagesEndRef} />
         </div>
