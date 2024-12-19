@@ -1,78 +1,53 @@
 from flask import Blueprint, jsonify, request, Response, stream_with_context
 from service.product_chat import initialize_chat, handle_chat_message
-from service.product_chat import get_chat_history
-from service.cookie_service import CookieService
 import json
 
 chat_view = Blueprint('chat_view', __name__)
-cookie_service = CookieService()
 
 @chat_view.route('/start-chat', methods=['POST'])
 def start_chat():
-    data = request.get_json()
-    product = data.get('product')
-    brand = data.get('brand')
-    cookie_id = request.headers.get('X-Cookie-Id')
-    image_url = data.get('image_url')
-    print(f"Starting chat for {product} from {brand} with image url {image_url}")
-    
-    if not product or not brand:
-        return jsonify({"error": "Product and brand are required"}), 400
-    
-    if not cookie_id:
-        return jsonify({"error": "Cookie ID is required"}), 400
-        
     try:
-        chat_id = initialize_chat(cookie_id, product, brand, image_url)
-        initial_message = f"👋 Hello! I'm  {brand}'s {product}! you can ask me anything and I will try to help you!"
+        data = request.get_json()
+        cookie_id = request.headers.get('X-Cookie-ID')
+        product_id = data.get('product_id')
+        
+        if not product_id:
+            return jsonify({'error': 'Product ID is required'}), 400
+        
+        if not cookie_id:
+            return jsonify({'error': 'Cookie ID is required'}), 400
+            
+        chat_data = initialize_chat(cookie_id, product_id)
         
         return jsonify({
-            "chat_id": chat_id,
-            "message": initial_message
+            'status': 'success',
+            'chat_data': chat_data
         })
+        
     except Exception as e:
         print(f"Error in start_chat: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 @chat_view.route('/chat', methods=['POST'])
 def chat():
     try:
         data = request.get_json()
         cookie_id = request.headers.get('X-Cookie-ID')
+        product_id = data.get('product_id')
         chat_id = data.get('chat_id')
-        message = data.get('message')
+        user_message = data.get('message')
         
-        response_content = ""
-        sources = []
-        
-        message_count = cookie_service.update_message_count(cookie_id)
-    
-        if message_count > 5:
-            cookie_data = cookie_service.get_cookie_data(cookie_id)
-            if not cookie_data or not cookie_data.get('isLoggedIn'):
-                return jsonify({
-                    'type': 'auth_required',
-                    'message': 'To continue chatting, please sign up or log in. This helps us provide you with a better experience and save your chat history.',
-                    'messageCount': message_count
-                }), 403
-        
-        for chunk in handle_chat_message(cookie_id, chat_id, message):
-            if isinstance(chunk, dict) and chunk.get('type') == 'final':
-                sources = chunk.get('sources', [])
-            else:
-                content = str(chunk)
-                if "###" in content:
-                    content = content.split("###")[-1].strip()
-                elif "Main Response:" in content:
-                    content = content.replace("Main Response:", "").strip()
-                    
-                if content.strip():
-                    response_content += content
-        
-        return jsonify({
-            'content': response_content,
-            'sources': sources
-        })
+        if not all([cookie_id, product_id, chat_id, user_message]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+
+        def generate():
+            try:
+                for chunk in handle_chat_message(cookie_id, product_id, chat_id, user_message):
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
         
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")

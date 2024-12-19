@@ -1,17 +1,16 @@
 from flask import Blueprint, jsonify, request
-from service.product_service import find_product_by_name_and_brand_with_retriever, get_product_suggestions
+from service.product_service import find_product_with_retriever, get_product_suggestions
 
 search_product_route = Blueprint('search_product', __name__)
 
 @search_product_route.route('/search-products', methods=['GET'])
 def search_products():
     product = request.args.get('product')
-    brand = request.args.get('brand')
     
-    if not product or not brand:
+    if not product:
         return jsonify({"error": "Both product and brand parameters are required"}), 400
         
-    products = find_product_by_name_and_brand_with_retriever(product, brand)
+    products = find_product_with_retriever(product)
     # Update the response to include image_url
     return jsonify([{
         "product": p["product"], 
@@ -21,7 +20,7 @@ def search_products():
     
 @search_product_route.route('/product-suggestions', methods=['GET'])
 def product_suggestions_route():
-    query = request.args.get('query', '')
+    query = request.args.get('q', '')
     max_suggestions = int(request.args.get('max', '5'))
     
     suggestions = get_product_suggestions(query, max_suggestions)
@@ -29,7 +28,8 @@ def product_suggestions_route():
     formatted_suggestions = [{
         "product": suggestion["value"]["product"],
         "brand": suggestion["value"]["brand"],
-        "image_url": suggestion["image_url"]
+        "image_url": suggestion["image_url"],
+        "product_id": suggestion["product_id"]
     } for suggestion in suggestions]
     
     return jsonify(formatted_suggestions)

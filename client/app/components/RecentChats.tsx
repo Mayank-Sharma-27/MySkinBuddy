@@ -50,34 +50,25 @@ export default function RecentChats() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Cookie-ID': cookieId
+          'X-Cookie-ID': cookieId,
         },
         body: JSON.stringify({
-          product: chat.product,
-          brand: chat.brand,
-          image_url: chat.image_url
-        })
+          product_id: chat.product_id,
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start chat');
+        throw new Error('Failed to start chat');
       }
 
       const data = await response.json();
-      
-      const chatParams = new URLSearchParams({
-        chatId: data.chat_id,
-        product: encodeURIComponent(chat.product),
-        brand: encodeURIComponent(chat.brand),
-        message: data.message,
-        imageUrl: encodeURIComponent(chat.image_url)
-      });
-
-      router.push(`/chat?${chatParams.toString()}`);
+      if (data.status === 'success') {
+        router.push(`/chat/${chat.product_id}?chat_id=${data.chat_id}`);
+      } else {
+        throw new Error(data.error || 'Failed to start chat');
+      }
     } catch (error) {
       console.error('Error starting chat:', error);
-      // Handle error appropriately
     }
   };
 

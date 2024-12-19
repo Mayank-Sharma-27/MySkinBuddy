@@ -26,6 +26,8 @@ from langchain_community.tools import DuckDuckGoSearchResults
 from duckduckgo_search import DDGS
 import google.api_core.exceptions
 from service.chat_service import get_chat, save_chat;
+from typing import Generator
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 duckduckgo = DDGS(timeout=20)
 
@@ -85,9 +87,9 @@ model = ChatGoogleGenerativeAI(
     streaming=True
 )
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy")
+index = pc.Index("product-buddy-google")
 parser = StrOutputParser()
-embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
 memory = ConversationBufferMemory()
 s3_client = get_s3_client()
@@ -124,17 +126,14 @@ def get_product_filter(product_name: str, brand_name: str):
 # Store active chat sessions
 active_chats = {}
 
-def get_initial_context(product_name: str, brand_name: str):
+def get_initial_context(product_id: str):
     """
     Get initial context for a product including its details and all its ingredients
-    """
-    print(f"\n🔍 Getting initial context for {product_name} by {brand_name}")
-    
+    """    
     try:
         # Get product document
         product_filter = {
-            "brand": brand_name.lower(),
-            "product": product_name.lower(),
+            "product_id": product_id,
             "type": "product"
         }
         
@@ -145,10 +144,9 @@ def get_initial_context(product_name: str, brand_name: str):
         )
         
         if not product_docs:
-            raise ValueError(f"Product not found: {product_name} by {brand_name}")
+            raise ValueError(f"Product not found: {product_id}")
         
         product_doc = product_docs[0]
-        
         # Convert Document object to serializable dict
         context = {
             "product": {
@@ -162,41 +160,54 @@ def get_initial_context(product_name: str, brand_name: str):
         print(f"❌ Error getting initial context: {str(e)}")
         raise
 
-def initialize_chat(cookie_id: str, product_name: str, brand_name: str, image_url: str) -> str:
-    """Initialize a new chat session for a specific product"""
+def initialize_chat(cookie_id: str, product_id: str) -> tuple[str, str]:
+    """
+    Initialize a new chat session for a specific product
+    Returns tuple of (chat_id, initial_message)
+    """
     chat_id = str(uuid4())
-    print(f"Initializing chat for - Product: '{product_name}', Brand: '{brand_name}'")
     
     try:
-        # Get initial context
-        initial_context = get_initial_context(product_name, brand_name)
+        # Get initial context and product details
+        initial_context = get_initial_context(product_id)
+        print(f"Context: {initial_context}")
+        product_name = initial_context['product']["metadata"]["product"]
+        brand_name = initial_context['product']["metadata"]["brand"]
+        image_url = initial_context['product']['metadata']['image_url']
+        # Create initial welcome message
+        initial_message = f"👋 Hello! I'm {brand_name}'s {product_name}! You can ask me anything and I will try to help you!"
         
         # Create chat session data
         chat_data = {
-            "product": product_name,
-            "brand": brand_name,
+            "product_id": product_id,
+            "chat_id": chat_id,
+            "product_name": product_name,
+            "brand_name": brand_name,
             "image_url": image_url,
             "created_time": datetime.utcnow().isoformat(),
             "last_updated_time": datetime.utcnow().isoformat(),
             "chat_history": [],
-            "preloaded_context": initial_context
+            "preloaded_context": initial_context,
+            "initial_message": initial_message
         }
         
-        # Save to S3
-        save_chat(cookie_id, chat_id, chat_data)
+        # Save chat data
+        save_chat(cookie_id, product_id, chat_id, chat_data)
         
-        print(f"Chat initialized with ID: {chat_id}")
-        return chat_id
+        return chat_data
+        
     except Exception as e:
         print(f"Error initializing chat: {str(e)}")
         raise
 
-def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
+def handle_chat_message(cookie_id: str, product_id: str, chat_id: str, user_question: str) -> Generator[str, None, None]:
     """Handle a chat message and return the response"""
     try:
-        # Get chat data from S3
-        chat_data = get_chat(cookie_id, chat_id)
-        
+        # Get chat data
+        chat_data = get_chat(cookie_id, product_id, chat_id)
+        if not chat_data:
+            raise Exception("Chat not found")
+            
         # Generate response
         accumulated_response = ""
         for chunk in generate_response(chat_data, user_question):
@@ -210,11 +221,19 @@ def handle_chat_message(cookie_id: str, chat_id: str, user_question: str):
         
         # Update chat history
         chat_data["chat_history"].append({
-            "question": user_question,
-            "response": accumulated_response
+            "role": "user",
+            "content": user_question,
+            "timestamp": datetime.utcnow().isoformat()
         })
+        chat_data["chat_history"].append({
+            "role": "assistant",
+            "content": accumulated_response,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
         chat_data["last_updated_time"] = datetime.utcnow().isoformat()
-        save_chat(cookie_id, chat_id, chat_data)     
+        save_chat(cookie_id, product_id, chat_id, chat_data)
+        
     except Exception as e:
         print(f"Error handling message: {str(e)}")
         raise

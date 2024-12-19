@@ -4,6 +4,7 @@ import { SearchBar } from "./components/SearchBar";
 import { useRouter } from "next/navigation";
 import { Navbar } from "./components/Navbar";
 import RecentChats from "./components/RecentChats";
+
 export default function Home() {
 const router = useRouter();
 

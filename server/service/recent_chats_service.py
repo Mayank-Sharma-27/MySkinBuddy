@@ -1,5 +1,5 @@
 from typing import List, Dict
-from .chat_service import get_recent_chats as chat_service_get_recent_chats
+from .chat_service import get_recent_chats
 
 def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     """
@@ -7,7 +7,7 @@ def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     Returns list of chats with product info, ordered by most recent first
     """
     try:
-        return chat_service_get_recent_chats(cookie_id, limit)
+        return get_recent_chats(cookie_id, limit)
     except Exception as e:
         print(f"Error fetching recent chats: {str(e)}")
         return []

@@ -1,149 +1,168 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useDebounce } from '../hooks/useDebounce';
-import { useRouter } from 'next/navigation';
-import { getCookieId } from '../utils/cookies';
+"use client";
+import { useState, useRef, useEffect, FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useDebounce } from "../hooks/useDebounce";
+import Image from "next/image";
+import { getCookieId } from "../utils/cookies";
 
 interface Product {
+  product_id: string;
   product: string;
   brand: string;
-  image_url?: string;
+  image_url: string;
 }
 
-interface ProductAutocompleteProps {
-  onSelect?: (product: string, brand: string) => void;
-  placeholder?: string;
+interface ProductAutoCompleteProps {
+  onSearch: (productName: string, brandName: string) => void;
 }
 
-export function ProductAutocomplete({ onSelect, placeholder = "Search for a product..." }: ProductAutocompleteProps) {
-  const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<Product[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const debouncedQuery = useDebounce(query, 300);
+export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchSuggestions = async () => {
-      if (debouncedQuery.length < 2) {
-        setSuggestions([]);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const response = await fetch(
-          `http://localhost:8080/product-suggestions?query=${encodeURIComponent(debouncedQuery)}&max=5`
-        );
-        if (!response.ok) throw new Error('Failed to fetch suggestions');
-        const data = await response.json();
-        setSuggestions(data);
-        setIsOpen(true);
-      } catch (error) {
-        console.error('Error fetching suggestions:', error);
-        setSuggestions([]);
-      } finally {
-        setLoading(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowDropdown(false);
       }
     };
 
-    fetchSuggestions();
-  }, [debouncedQuery]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const handleProductSelect = async (product: string, brand: string, imageUrl: string) => {
+  useEffect(() => {
+    const getSuggestions = async () => {
+      if (!debouncedSearchTerm.trim()) {
+        setProducts([]);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `http://localhost:8080/product-suggestions?q=${encodeURIComponent(
+            debouncedSearchTerm
+          )}`
+        );
+        if (!response.ok) throw new Error("Search failed");
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error("Error getting suggestions:", error);
+        setProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getSuggestions();
+  }, [debouncedSearchTerm]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      onSearch(searchTerm, "");
+      setShowDropdown(false);
+    }
+  };
+
+  const handleProductSelect = async (product: Product) => {
     try {
       const cookieId = getCookieId();
       if (!cookieId) {
-        throw new Error('No cookie ID available');
+        throw new Error("No cookie ID available");
       }
 
-      const response = await fetch('http://localhost:8080/start-chat', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8080/start-chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Cookie-ID': cookieId
+          "Content-Type": "application/json",
+          "X-Cookie-ID": cookieId,
         },
         body: JSON.stringify({
-          product: product,
-          brand: brand,
-          image_url: imageUrl
-        })
+          product_id: product.product_id,
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start chat');
+        throw new Error("Failed to start chat");
       }
 
       const data = await response.json();
-      
-      const chatParams = new URLSearchParams({
-        chatId: data.chat_id,
-        product: encodeURIComponent(product),
-        brand: encodeURIComponent(brand),
-        message: data.message,
-        imageUrl: encodeURIComponent(imageUrl)
-      });
-
-      router.push(`/chat?${chatParams.toString()}`);
+      if (data.status === "success") {
+        localStorage.setItem(`chat_data_${data.chat_data.chat_id}`, JSON.stringify(data.chat_data));
+        router.push(`/chat/${product.product_id}?chat_id=${data.chat_data.chat_id}`);
+      } else {
+        throw new Error(data.error || "Failed to start chat");
+      }
     } catch (error) {
-      console.error('Error starting chat:', error);
+      console.error("Error starting chat:", error);
     }
   };
 
   return (
-    <div className="relative w-full">
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => setIsOpen(true)}
-        className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#a984b2] focus:border-transparent"
-        placeholder={placeholder}
-      />
-      
-      {loading && (
-        <div className="absolute right-3 top-3">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#a984b2]"></div>
-        </div>
-      )}
+    <div className="relative w-full" ref={dropdownRef}>
+      <form onSubmit={handleSubmit} className="flex">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onFocus={() => setShowDropdown(true)}
+          placeholder="Search for a product..."
+          className="w-full p-4 border border-gray-300 rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#a984b2] focus:border-transparent"
+        />
+        <button
+          type="submit"
+          className="px-6 bg-[#a984b2] text-white rounded-r-lg hover:bg-[#8e6d97] transition-colors"
+        >
+          Search
+        </button>
+      </form>
 
-      {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg max-h-60 overflow-auto">
-          {suggestions.map((suggestion, index) => (
-            <div
-              key={index}
-              className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
-              onClick={async () => {
-                try {
-                  await handleProductSelect(
-                    suggestion.product, 
-                    suggestion.brand,
-                    suggestion.image_url || ''
-                  );
-                  setQuery('');
-                  setIsOpen(false);
-                } catch (error) {
-                  console.error('Error handling product selection:', error);
-                }
-              }}
-            >
-              {suggestion.image_url && (
-                <img 
-                  src={suggestion.image_url} 
-                  alt={`${suggestion.brand} - ${suggestion.product}`}
-                  className="w-10 h-10 object-cover rounded-md mr-3"
-                />
-              )}
-              <div>
-                <div className="text-sm font-medium text-gray-900">{suggestion.product}</div>
-                <div className="text-sm text-gray-500">{suggestion.brand}</div>
-              </div>
+      {showDropdown && searchTerm.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto">
+          {isLoading ? (
+            <div className="p-4 text-gray-500">Loading...</div>
+          ) : products.length > 0 ? (
+            <div className="py-2">
+              {products.map((product) => (
+                <div
+                  key={product.product_id}
+                  onClick={() => handleProductSelect(product)}
+                  className="flex items-center gap-4 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                >
+                  <div className="relative w-12 h-12 flex-shrink-0">
+                    <Image
+                      src={product.image_url || "/placeholder-product.png"}
+                      alt={product.product}
+                      fill
+                      className="object-cover rounded"
+                      sizes="48px"
+                    />
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-800">
+                      {product.product}
+                    </div>
+                    <div className="text-sm text-gray-500">{product.brand}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="p-4 text-gray-500">No products found</div>
+          )}
         </div>
       )}
     </div>
   );
-} 
+};

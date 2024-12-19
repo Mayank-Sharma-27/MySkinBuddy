@@ -1,10 +1,11 @@
-'use client';
-import { useState, useRef, useEffect } from 'react';
-import { getCookieId } from '../utils/cookies';
-import { ChatMessage } from './ChatMessage';
-import dynamic from 'next/dynamic';
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getCookieId } from "../utils/cookies";
+import { ChatMessage } from "./ChatMessage";
+import dynamic from "next/dynamic";
 
-const LoginModal = dynamic(() => import('./LoginModal'), {
+const LoginModal = dynamic(() => import("./LoginModal"), {
   ssr: false,
 });
 
@@ -27,27 +28,34 @@ interface StreamResponse {
 
 interface StreamChunk {
   content: string;
-  sources: Array<{url: string; title: string}>;
-  type?: 'final';
+  sources: Array<{ url: string; title: string }>;
+  type?: "final";
 }
 
-export function ChatWindow({ chatId, initialMessage, productName, brandName, imageUrl, fullPage = false, onClose, existing = false }: {
+export function ChatWindow({
+  chatId,
+  productId,
+  fullPage = false,
+  onClose,
+  existing = false,
+}: {
   chatId: string;
-  initialMessage: string;
-  productName: string;
-  brandName: string;
-  imageUrl: string;
+  productId: string;
   fullPage?: boolean;
   onClose?: () => void;
   existing?: boolean;
 }) {
-  const [messages, setMessages] = useState<Message[]>([
-    { content: initialMessage, isBot: true }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [initialMessage, setInitialMessage] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [productName, setProductName] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Load chat history for existing chats
   useEffect(() => {
@@ -55,74 +63,130 @@ export function ChatWindow({ chatId, initialMessage, productName, brandName, ima
       if (!existing) return;
 
       try {
-        const response = await fetch(`http://localhost:8080/chat/${chatId}/history`, {
-          headers: {
-            'X-Cookie-ID': getCookieId(),
-          },
-        });
+        const response = await fetch(
+          `http://localhost:8080/chat/${chatId}/history`,
+          {
+            headers: {
+              "X-Cookie-ID": getCookieId(),
+            },
+          }
+        );
 
-        if (!response.ok) throw new Error('Failed to load chat history');
-        
+        if (!response.ok) throw new Error("Failed to load chat history");
+
         const data = await response.json();
-        
+
         // Transform chat history into messages format
         const chatHistory = data.chat_history.map((msg: any) => ({
           content: msg.content,
-          isBot: msg.role === 'assistant',
-          sources: msg.sources || []
+          isBot: msg.role === "assistant",
+          sources: msg.sources || [],
         }));
 
         setMessages(chatHistory);
       } catch (error) {
-        console.error('Error loading chat history:', error);
+        console.error("Error loading chat history:", error);
       }
     };
 
     loadChatHistory();
   }, [chatId, existing]);
 
+  // Load initial message and chat data for new chats
+  useEffect(() => {
+    const loadInitialChat = async () => {
+      if (existing) return; // Skip for existing chats
+
+      try {
+        const response = await fetch("http://localhost:8080/start-chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Cookie-ID": getCookieId(),
+          },
+          body: JSON.stringify({
+            product_id: productId,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to initialize chat");
+
+        const data = await response.json();
+        const chatData = data.chat_data;
+
+        // Store chat data in localStorage
+        localStorage.setItem(`chat_data_${chatId}`, JSON.stringify(chatData));
+
+        // Set the initial message and other data
+        setInitialMessage(chatData.initial_message);
+        setImageUrl(chatData.image_url);
+        setProductName(chatData.product_name);
+        setBrandName(chatData.brand_name);
+
+        // Add initial message to messages array
+        setMessages([
+          {
+            content: chatData.initial_message,
+            isBot: true,
+            sources: [],
+          },
+        ]);
+      } catch (error) {
+        console.error("Error initializing chat:", error);
+      }
+    };
+
+    loadInitialChat();
+  }, [chatId, productId, existing]);
+
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
     const userMessage = inputMessage;
-    setInputMessage('');
-    setMessages(prev => [...prev, { content: userMessage, isBot: false }]);
+    setInputMessage("");
+    setMessages((prev) => [...prev, { content: userMessage, isBot: false }]);
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/chat', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8080/chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Cookie-ID': getCookieId(),
+          "Content-Type": "application/json",
+          "X-Cookie-ID": getCookieId(),
         },
         body: JSON.stringify({
           chat_id: chatId,
           message: userMessage,
+          product_id: productId,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to send message');
-      
-      const data = await response.json();
-      
-      setMessages(prev => [...prev, {
-        content: data.content,
-        isBot: true,
-        sources: data.sources?.map((url: string) => ({
-          title: new URL(url).hostname,
-          url: url
-        }))
-      }]);
+      if (!response.ok) throw new Error("Failed to send message");
 
+      const data = await response.json();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          content: data.content,
+          isBot: true,
+          sources: data.sources?.map((url: string) => ({
+            title: new URL(url).hostname,
+            url: url,
+          })),
+        },
+      ]);
     } catch (error) {
-      console.error('Chat error:', error);
-      setMessages(prev => [...prev, { 
-        content: 'Sorry, I encountered an error. Please try again.',
-        isBot: true,
-        sources: []
-      }]);
+      console.error("Chat error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          content: "Sorry, I encountered an error. Please try again.",
+          isBot: true,
+          sources: [],
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -130,17 +194,17 @@ export function ChatWindow({ chatId, initialMessage, productName, brandName, ima
 
   // Auto-scroll effect
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const formatContent = (content: string) => {
     // Check if content is a comma-separated list of URLs
-    if (content.includes('http') && content.includes(',')) {
-      const links = content.split(',').map(url => url.trim());
+    if (content.includes("http") && content.includes(",")) {
+      const links = content.split(",").map((url) => url.trim());
       return (
         <div className="flex flex-col gap-2">
           {links.map((url, index) => (
-            <a 
+            <a
               key={index}
               href={url}
               target="_blank"
@@ -153,26 +217,38 @@ export function ChatWindow({ chatId, initialMessage, productName, brandName, ima
         </div>
       );
     }
-    
+
     // Regular content
     return <span>{content}</span>;
   };
 
   return (
     <>
-      <div className={fullPage ? "h-full" : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"}>
-        <div className={fullPage ? "bg-white w-full h-full flex flex-col" : "bg-white rounded-lg w-full max-w-2xl h-[600px] flex flex-col"}>
+      <div
+        className={
+          fullPage
+            ? "h-full"
+            : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+        }
+      >
+        <div
+          className={
+            fullPage
+              ? "bg-white w-full h-full flex flex-col"
+              : "bg-white rounded-lg w-full max-w-2xl h-[600px] flex flex-col"
+          }
+        >
           {/* Header */}
           <div className="p-4 border-b flex items-center justify-between bg-[#faf4f4]">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 rounded-lg overflow-hidden">
-                <img 
-                  src={imageUrl} 
+                <img
+                  src={imageUrl}
                   alt={productName}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = '/placeholder-product.png';
+                    target.src = "/placeholder-product.png";
                   }}
                 />
               </div>
@@ -182,7 +258,10 @@ export function ChatWindow({ chatId, initialMessage, productName, brandName, ima
               </div>
             </div>
             {!fullPage && onClose && (
-              <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
                 ×
               </button>
             )}
@@ -217,11 +296,11 @@ export function ChatWindow({ chatId, initialMessage, productName, brandName, ima
                 disabled={isLoading || !inputMessage.trim()}
                 className={`px-4 py-2 rounded-lg ${
                   isLoading || !inputMessage.trim()
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-[#a984b2] hover:bg-[#8e6d97] text-white'
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-[#a984b2] hover:bg-[#8e6d97] text-white"
                 }`}
               >
-                {isLoading ? '...' : 'Send'}
+                {isLoading ? "..." : "Send"}
               </button>
             </div>
           </form>
@@ -229,11 +308,11 @@ export function ChatWindow({ chatId, initialMessage, productName, brandName, ima
       </div>
 
       {showLoginModal && (
-        <LoginModal 
+        <LoginModal
           onClose={() => setShowLoginModal(false)}
           message="Continue the conversation by signing in or creating an account. This helps us provide a better experience."
         />
       )}
     </>
   );
-} 
+}

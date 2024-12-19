@@ -13,6 +13,7 @@ import re
 load_dotenv()
 from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+import hashlib
 
 api_key = os.getenv("TOGETHER_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -50,7 +51,9 @@ def normalize_ingredient_name(name):
 def normalize_product_name(name):
     name = name.lower().strip()
     return re.sub(r'[^a-z0-9\s]', '', name) 
-    
+  
+def generate_product_id(product_name, brand_name):
+    return hashlib.md5(f"{product_name}-{brand_name}".encode()).hexdigest()    
 
 def create_product_embeddings():
     documents = []
@@ -99,13 +102,17 @@ def create_product_embeddings():
                         page_content = (
                             f"Product: {product_name}. Brand: {brand_name}. Ingredients : {chunk_text}."
                         )
+                        image_key = key.replace('.json', '.jpg')
+                        image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{image_key}"
                         doc = Document(
                             page_content=page_content,
                             metadata={
                                 "product": product_name,
                                 "brand": brand_name,
                                 "type": "product",
-                                "source": key
+                                "source": key,
+                                "product_id": generate_product_id(product_name, brand_name),
+                                "image_url": image_url
                             }
                         )
                         print(f"Processing product: {product_name}")

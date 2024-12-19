@@ -53,42 +53,32 @@ export default function ProductSearchPage() {
     try {
       const cookieId = getCookieId();
       if (!cookieId) {
-        throw new Error("No cookie ID available");
+        throw new Error('No cookie ID available');
       }
 
-      const response = await fetch("http://localhost:8080/start-chat", {
-        method: "POST",
+      const response = await fetch('http://localhost:8080/start-chat', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "X-Cookie-ID": cookieId,
+          'Content-Type': 'application/json',
+          'X-Cookie-ID': cookieId,
         },
         body: JSON.stringify({
-          product: product.product,
-          brand: product.brand,
+          product_id: product.product_id,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to start chat");
+        throw new Error('Failed to start chat');
       }
 
       const data = await response.json();
-
-      if (!product.image_url) {
-        console.warn("No image URL available for product");
+      if (data.status === 'success') {
+        router.push(`/chat/${product.product_id}?chat_id=${data.chat_id}`);
+      } else {
+        throw new Error(data.error || 'Failed to start chat');
       }
-
-      const params = new URLSearchParams();
-      params.set("chatId", data.chat_id);
-      params.set("product", product.product);
-      params.set("brand", product.brand);
-      params.set("message", data.message);
-      params.set("imageUrl", product.image_url || "");
-
-      router.push(`/chat?${params.toString()}`);
     } catch (error) {
-      console.error("Error starting chat:", error);
+      console.error('Error starting chat:', error);
     }
   };
 
