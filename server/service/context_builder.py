@@ -25,11 +25,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchResults
 from duckduckgo_search import DDGS
 import google.api_core.exceptions
-from service.chat_service import get_chat, save_chat, initialize_agents_data;
+from service.chat_service import get_chat, save_chat;
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from service.generate_chat_response import generate_response 
-from service.context_builder import get_initial_context
 
 duckduckgo = DDGS(timeout=20)
 
@@ -57,6 +55,9 @@ You are the {product_name} by {brand_name}. Be friendly but concise.:
 
 Your information:
 {context}
+
+External research results:
+{search_results}
 
 Previous conversation:
 {chat_history}
@@ -94,82 +95,65 @@ memory = ConversationBufferMemory()
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
-def initialize_chat(cookie_id: str, product_id: str) -> tuple[str, str]:
-    """
-    Initialize a new chat session for a specific product
-    Returns tuple of (chat_id, initial_message)
-    """
-    chat_id = str(uuid4())
+def normalize_product_name(name):
+    name = name.lower()
     
+    name = re.sub(r'[^a-z0-9\s]', '', name)
+    
+    name = ' '.join(name.split())
+    
+    return name
+
+def get_product_filter(product_name: str, brand_name: str):
+    # Debug the original values
+    print(f"Debug - Original values: Product='{product_name}', Brand='{brand_name}'")
+    
+    # Normalize the brand and product names
+    brand_name = brand_name.lower().strip()
+    product_name = product_name.lower().strip()
+    
+    # Debug the normalized values
+    print(f"Debug - Normalized values: Product='{product_name}', Brand='{brand_name}'")
+    
+    # Create a simple filter
+    return {
+        "brand": brand_name,
+        "product": product_name
+    }
+    
+# Store active chat sessions
+active_chats = {}
+
+def get_initial_context(product_id: str):
+    """
+    Get initial context for a product including its details and all its ingredients
+    """    
     try:
-        # Get initial context and product details
-        initial_context = get_initial_context(product_id)
-        product_name = initial_context['product']["metadata"]["product"]
-        brand_name = initial_context['product']["metadata"]["brand"]
-        image_url = initial_context['product']['metadata']['image_url']
-        # Create initial welcome message
-        initial_message = f"👋 Hello! I'm {brand_name}'s {product_name}! You can ask me anything and I will try to help you!"
-        
-        # Create chat session data
-        chat_data = {
+        # Get product document
+        product_filter = {
             "product_id": product_id,
-            "chat_id": chat_id,
-            "product_name": product_name,
-            "brand_name": brand_name,
-            "image_url": image_url,
-            "created_time": datetime.utcnow().isoformat(),
-            "last_updated_time": datetime.utcnow().isoformat(),
-            "chat_history": [],
-            "preloaded_context": initial_context,
-            "initial_message": initial_message
+            "type": "product"
         }
         
-        # Save chat data
-        save_chat(cookie_id, product_id, chat_id, chat_data)
+        product_docs = pinecone_vector_store.similarity_search(
+            "",  # Empty query to get exact match
+            k=1,
+            filter=product_filter
+        )
         
-        initialize_agents_data(initial_context['product']["metadata"])
+        if not product_docs:
+            raise ValueError(f"Product not found: {product_id}")
         
-        return chat_data
-        
-    except Exception as e:
-        print(f"Error initializing chat: {str(e)}")
-        raise
-
-def handle_chat_message(cookie_id: str, product_id: str, chat_id: str, user_question: str) -> Generator[str, None, None]:
-    """Handle a chat message and return the response"""
-    try:
-        # Get chat data
-        chat_data = get_chat(cookie_id, product_id, chat_id)
-        if not chat_data:
-            raise Exception("Chat not found")
-            
-        # Generate response
-        accumulated_response = ""
-        for chunk in generate_response(chat_data, user_question):
-            if isinstance(chunk, dict):
-                content = chunk.get('content', '')
-            else:
-                content = str(chunk)
-                
-            accumulated_response += content
-            yield content
-        
-        # Update chat history
-        chat_data["chat_history"].append({
-            "role": "user",
-            "content": user_question,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        chat_data["chat_history"].append({
-            "role": "assistant",
-            "content": accumulated_response,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        
-        chat_data["last_updated_time"] = datetime.utcnow().isoformat()
-        save_chat(cookie_id, product_id, chat_id, chat_data)
+        product_doc = product_docs[0]
+        # Convert Document object to serializable dict
+        context = {
+            "product": {
+                "page_content": product_doc.page_content,
+                "metadata": product_doc.metadata
+            }
+        }
+        return context
         
     except Exception as e:
-        print(f"Error handling message: {str(e)}")
+        print(f"❌ Error getting initial context: {str(e)}")
         raise
-

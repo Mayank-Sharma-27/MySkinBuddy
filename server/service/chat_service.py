@@ -3,6 +3,10 @@ import os
 from typing import List, Dict, Optional
 import json
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from service.agents.product_information_agent import ProductInformationAgent
+from service.agents.ingredients_analyzer_agent import IngredientAnalyzerAgent
+from service.agents.products_recommendation_agent import ProductRecommendationsAgent
 
 # Initialize S3 client once
 s3_client = boto3.client(
@@ -11,6 +15,8 @@ s3_client = boto3.client(
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
 )
 bucket_name = "product-buddy"
+
+executor = ThreadPoolExecutor(max_workers=3)
 
 def save_chat(cookie_id: str, product_id: str, chat_id: str, chat_data: dict):
     """Save chat data to S3"""
@@ -60,3 +66,28 @@ def get_recent_chats(cookie_id: str) -> list:
     except Exception as e:
         print(f"Error getting product chats: {str(e)}")
         raise 
+
+def initialize_agents_data(product_data: dict):
+    """Initialize data from all agents in background"""
+    
+    def run_product_info():
+        try:
+            agent = ProductInformationAgent()
+            agent.get_product_info(product_data)
+        except Exception as e:
+            print(f"Error in product info agent: {str(e)}")
+
+    def run_ingredients_analysis():
+        try:
+            agent = IngredientAnalyzerAgent()
+            agent.analyze_ingredients(product_data)
+        except Exception as e:
+            print(f"Error in ingredients agent: {str(e)}")
+
+    def run_recommendations():
+        try:
+            agent = ProductRecommendationsAgent()
+            #agent.recommend_products(product_id, {})
+        except Exception as e:
+            print(f"Error in recommendations agent: {str(e)}")
+    run_product_info()
