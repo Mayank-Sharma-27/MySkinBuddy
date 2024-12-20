@@ -127,7 +127,7 @@ def initialize_chat(cookie_id: str, product_id: str) -> tuple[str, str]:
         # Save chat data
         save_chat(cookie_id, product_id, chat_id, chat_data)
         
-        initialize_agents_data(initial_context['product']["metadata"])
+        #initialize_agents_data(initial_context['product']["metadata"])
         
         return chat_data
         
