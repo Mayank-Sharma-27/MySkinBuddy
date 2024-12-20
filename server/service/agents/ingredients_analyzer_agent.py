@@ -23,7 +23,6 @@ class IngredientAnalyzerAgent:
                 results = self.search_tool.run(search_query)
                 search_results[ingredient] = results
 
-            # Analyze the search results
             analyzed_data = self.extractor.analyze_ingredients_data(ingredients_list, search_results)
             
             return {

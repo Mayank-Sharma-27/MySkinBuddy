@@ -139,46 +139,80 @@ export function ChatWindow({
     loadInitialChat();
   }, [chatId, productId, existing]);
 
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage = inputMessage;
-    setInputMessage("");
-    setMessages((prev) => [...prev, { content: userMessage, isBot: false }]);
-    setIsLoading(true);
-
     try {
-      const response = await fetch("http://localhost:8080/chat", {
+      setIsLoading(true);
+      const newUserMessage = { content: inputMessage.trim(), isBot: false };
+      setMessages((prev) => [...prev, newUserMessage]);
+      setInputMessage("");
+
+      const response = await fetch('http://localhost:8080/chat', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Cookie-ID": getCookieId(),
         },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
+          message: inputMessage.trim(),
           chat_id: chatId,
-          message: userMessage,
-          product_id: productId,
+          product_id: productId  // Make sure productId is available in props or context
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      const data = await response.json();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No reader available");
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          content: data.content,
-          isBot: true,
-          sources: data.sources?.map((url: string) => ({
-            title: new URL(url).hostname,
-            url: url,
-          })),
-        },
-      ]);
+      let accumulatedContent = "";
+      let sources: string[] = [];
+
+      // Create a new bot message
+      const botMessage = { content: "", isBot: true, sources: [] };
+      setMessages((prev) => [...prev, botMessage]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Convert the chunk to text
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split("\n").filter((line) => line.trim());
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(5));
+              if (data.content) {
+                // If this is the last message containing sources
+                if (data.content.includes("http")) {
+                  sources = data.content.split(", ");
+                } else {
+                  accumulatedContent += data.content;
+                  // Update the last message's content
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    lastMessage.content = accumulatedContent;
+                    lastMessage.sources = sources;
+                    return newMessages;
+                  });
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing chunk:", e);
+            }
+          }
+        }
+      }
+
     } catch (error) {
-      console.error("Chat error:", error);
+      console.error("Error:", error);
       setMessages((prev) => [
         ...prev,
         {
@@ -281,7 +315,7 @@ export function ChatWindow({
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t">
+          <form onSubmit={handleSubmit} className="p-4 border-t">
             <div className="flex space-x-2">
               <input
                 type="text"
