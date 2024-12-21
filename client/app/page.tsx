@@ -22,7 +22,7 @@ const router = useRouter();
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold text-center text-[#a984b2] mb-12">
-            Find Your Perfect Skincare Match
+            Know Your Next Product
           </h1>
 
           <SearchBar onSearch={handleSearch} />

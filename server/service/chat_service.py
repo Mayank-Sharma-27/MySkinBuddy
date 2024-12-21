@@ -36,19 +36,22 @@ def get_chat(cookie_id: str, product_id: str, chat_id: str) -> dict:
     """Get chat data from S3"""
     try:
         key = f"chats/{cookie_id}/{product_id}/{chat_id}.json"
+        
         response = s3_client.get_object(
             Bucket=bucket_name,
             Key=key
         )
+        print(f"Chat data: {response}")
         return json.loads(response['Body'].read())
     except Exception as e:
         print(f"Error getting chat: {str(e)}")
         raise
 
-def get_recent_chats(cookie_id: str) -> list:
-    """Get all chats for a product"""
+def get_all_chats_from_s3(cookie_id: str) -> list:
+    """Get all chats for a product from S3"""
     try:
         prefix = f"chats/{cookie_id}/"
+        print(f"Getting chat for key: {prefix}")
         response = s3_client.list_objects_v2(
             Bucket=bucket_name,
             Prefix=prefix

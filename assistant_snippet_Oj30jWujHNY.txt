@@ -1,0 +1,91 @@
+1|# MySkinBuddy
+2|
+3|An AI-powered skincare assistant that helps users understand and optimize their skincare routine.
+4|
+5|## Features
+6|
+7|- Product information analysis
+8|- Intelligent chat interface for skincare queries
+9|- Integration with DuckDuckGo and Google search for comprehensive product data
+10|- S3 storage for product information caching
+11|- Real-time chat with streaming responses
+12|
+13|## Prerequisites
+14|
+15|- Python 3.9+
+16|- AWS Account (for S3)
+17|- Google API credentials
+18|- Pinecone account
+19|
+20|## Installation
+21|
+22|1. Clone the repository:
+23|```bash
+24|git clone https://github.com/yourusername/MySkinBuddy.git
+25|cd MySkinBuddy
+26|```
+27|
+28|2. Install dependencies:
+29|```bash
+30|cd server
+31|pip install -r requirements.txt
+32|```
+33|
+34|## Environment Setup
+35|
+36|Create a `.env` file in the server directory with the following variables:
+37|
+38|```env
+39|AWS_ACCESS_KEY_ID=your_aws_key
+40|AWS_SECRET_ACCESS_KEY=your_aws_secret
+41|PINECONE_API_KEY=your_pinecone_key
+42|OPENAI_API_KEY=your_openai_key
+43|PERPLEXITY_API_KEY=your_perplexity_key
+44|```
+45|
+46|## Starting the Server
+47|
+48|To start the Python server:
+49|
+50|```bash
+51|cd server
+52|python -m flask run --port 5000
+53|```
+54|
+55|The server will start on `http://localhost:5000`
+56|
+57|## Project Structure
+58|
+59|```
+60|server/
+61|├── service/
+62|│   ├── agents/
+63|│   │   └── product_information_agent.py  # Product info extraction agent
+64|│   ├── extractors/
+65|│   │   └── product_info_extractor.py     # Web scraping and info extraction
+66|│   ├── product_chat.py                   # Main chat service
+67|│   └── chat_service.py                   # Chat management
+68|├── requirements.txt                      # Python dependencies
+69|└── .env                                  # Environment variables
+70|```
+71|
+72|## Key Components
+73|
+74|- **Product Information Agent**: Fetches and analyzes product information from various sources
+75|- **Product Info Extractor**: Extracts structured data from web pages
+76|- **Chat Service**: Manages chat sessions and responses
+77|
+78|## Dependencies
+79|
+80|Key dependencies include:
+81|- Flask >= 3.0.2
+82|- Langchain >= 0.3.6
+83|- BeautifulSoup4 >= 4.12.0
+84|- Pinecone client >= 3.0.0
+85|- DuckDuckGo Search >= 4.1.1
+86|
+87|For a complete list, see `requirements.txt`
+88|
+89|## License
+90|
+91|[Add your license information here] 

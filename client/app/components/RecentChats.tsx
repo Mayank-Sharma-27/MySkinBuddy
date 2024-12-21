@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { getCookieId } from "../utils/cookies";
 
 interface RecentChat {
@@ -16,21 +16,25 @@ export default function RecentChats() {
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
     const fetchRecentChats = async () => {
+      if (fetchedRef.current) return;
+      fetchedRef.current = true;
+
       try {
-        const response = await fetch('http://localhost:8080/recent-chats', {
+        const response = await fetch("http://localhost:8080/recent-chats", {
           headers: {
-            'X-Cookie-ID': getCookieId(),
+            "X-Cookie-ID": getCookieId(),
           },
         });
         const data = await response.json();
-        if (data.status === 'success') {
+        if (data.status === "success") {
           setRecentChats(data.chats);
         }
       } catch (error) {
-        console.error('Error fetching recent chats:', error);
+        console.error("Error fetching recent chats:", error);
       } finally {
         setLoading(false);
       }
@@ -43,14 +47,14 @@ export default function RecentChats() {
     try {
       const cookieId = getCookieId();
       if (!cookieId) {
-        throw new Error('No cookie ID available');
+        throw new Error("No cookie ID available");
       }
 
-      const response = await fetch('http://localhost:8080/start-chat', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8080/start-chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Cookie-ID': cookieId,
+          "Content-Type": "application/json",
+          "X-Cookie-ID": cookieId,
         },
         body: JSON.stringify({
           product_id: chat.product_id,
@@ -58,17 +62,17 @@ export default function RecentChats() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to start chat');
+        throw new Error("Failed to start chat");
       }
 
       const data = await response.json();
-      if (data.status === 'success') {
+      if (data.status === "success") {
         router.push(`/chat/${chat.product_id}?chat_id=${data.chat_id}`);
       } else {
-        throw new Error(data.error || 'Failed to start chat');
+        throw new Error(data.error || "Failed to start chat");
       }
     } catch (error) {
-      console.error('Error starting chat:', error);
+      console.error("Error starting chat:", error);
     }
   };
 
@@ -77,7 +81,10 @@ export default function RecentChats() {
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex gap-4 overflow-x-auto pb-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="animate-pulse flex-shrink-0 w-[200px] h-[120px] bg-gray-100 rounded-lg" />
+            <div
+              key={i}
+              className="animate-pulse flex-shrink-0 w-[200px] h-[120px] bg-gray-100 rounded-lg"
+            />
           ))}
         </div>
       </div>
@@ -101,7 +108,7 @@ export default function RecentChats() {
             <div className="w-[200px] bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200">
               <div className="relative h-[120px] w-full">
                 <Image
-                  src={chat.image_url || '/placeholder-product.png'}
+                  src={chat.image_url || "/placeholder-product.png"}
                   alt={chat.product}
                   fill
                   className="object-cover"
@@ -122,4 +129,4 @@ export default function RecentChats() {
       </div>
     </div>
   );
-} 
+}
