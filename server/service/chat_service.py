@@ -18,11 +18,28 @@ bucket_name = "product-buddy"
 
 executor = ThreadPoolExecutor(max_workers=3)
 
-def save_chat(cookie_id: str, product_id: str, chat_id: str, chat_data: dict):
+def save_chat(cookie_id: str, product_id: str, chat_data: dict):
     """Save chat data to S3"""
     try:
-        # Structure: chats/{cookie_id}/{product_id}/{chat_id}.json
-        key = f"chats/{cookie_id}/{product_id}/{chat_id}.json"
+        # Structure: chats/{cookie_id}/{product_id}.json
+        key = f"chats/{cookie_id}/{product_id}.json"
+        
+        # Try to get existing chat data
+        try:
+            existing_data = s3_client.get_object(
+                Bucket=bucket_name,
+                Key=key
+            )
+            existing_chat = json.loads(existing_data['Body'].read())
+            # Append new messages to existing chat history
+            existing_chat["chat_history"].extend(chat_data.get("chat_history", []))
+            existing_chat["last_updated_time"] = datetime.utcnow().isoformat()
+            chat_data = existing_chat
+        except:
+            # If no existing chat, use new chat data
+            chat_data["created_time"] = datetime.utcnow().isoformat()
+            chat_data["last_updated_time"] = datetime.utcnow().isoformat()
+        
         s3_client.put_object(
             Bucket=bucket_name,
             Key=key,
@@ -32,19 +49,17 @@ def save_chat(cookie_id: str, product_id: str, chat_id: str, chat_data: dict):
         print(f"Error saving chat: {str(e)}")
         raise
 
-def get_chat(cookie_id: str, product_id: str, chat_id: str) -> dict:
+def get_chat(cookie_id: str, product_id: str) -> dict:
     """Get chat data from S3"""
     try:
-        key = f"chats/{cookie_id}/{product_id}/{chat_id}.json"
-        
+        key = f"chats/{cookie_id}/{product_id}.json"
         response = s3_client.get_object(
             Bucket=bucket_name,
             Key=key
         )
-        print(f"Chat data: {response}")
         return json.loads(response['Body'].read())
     except Exception as e:
-        print(f"Error getting chat: {str(e)}")
+        print(f"Error getting chat when starting new chat: {str(e)}")
         raise
 
 def get_all_chats_from_s3(cookie_id: str) -> list:

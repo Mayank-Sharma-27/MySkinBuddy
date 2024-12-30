@@ -34,15 +34,14 @@ def chat():
         data = request.get_json()
         cookie_id = request.headers.get('X-Cookie-ID')
         product_id = data.get('product_id')
-        chat_id = data.get('chat_id')
         user_message = data.get('message')
         
-        if not all([cookie_id, product_id, chat_id, user_message]):
+        if not all([cookie_id, product_id, user_message]):
             return jsonify({'error': 'Missing required parameters'}), 400
 
         def generate():
             try:
-                for chunk in handle_chat_message(cookie_id, product_id, chat_id, user_message):
+                for chunk in handle_chat_message(cookie_id, product_id, user_message):
                     yield f"data: {json.dumps({'content': chunk})}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"

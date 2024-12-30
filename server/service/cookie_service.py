@@ -17,7 +17,7 @@ class CookieService:
         try:
             response = self.s3_client.get_object(
                 Bucket=self.bucket_name,
-                Key=f"cookies/{cookie_id}/user_info.json"
+                Key=f"cookies/{cookie_id}.json"
             )
             return json.loads(response['Body'].read().decode('utf-8'))
         except self.s3_client.exceptions.NoSuchKey:
@@ -31,7 +31,7 @@ class CookieService:
         try:
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
-                Key=f"cookies/{cookie_id}/user_info.json",
+                Key=f"cookies/{cookie_id}.json",
                 Body=json.dumps(data)
             )
         except Exception as e:

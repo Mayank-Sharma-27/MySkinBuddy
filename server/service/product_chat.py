@@ -94,53 +94,45 @@ memory = ConversationBufferMemory()
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
-def initialize_chat(cookie_id: str, product_id: str) -> tuple[str, str]:
+def initialize_chat(cookie_id: str, product_id: str) -> dict:
     """
-    Initialize a new chat session for a specific product
-    Returns tuple of (chat_id, initial_message)
+    Initialize or get existing chat session for a specific product
     """
-    chat_id = str(uuid4())
-    
     try:
-        # Get initial context and product details
-        initial_context = get_initial_context(product_id)
-        product_name = initial_context['product']["metadata"]["product"]
-        brand_name = initial_context['product']["metadata"]["brand"]
-        image_url = initial_context['product']['metadata']['image_url']
-        # Create initial welcome message
-        initial_message = f"👋 Hello! I'm {brand_name}'s {product_name}! You can ask me anything and I will try to help you!"
-        
-        # Create chat session data
-        chat_data = {
-            "product_id": product_id,
-            "chat_id": chat_id,
-            "product_name": product_name,
-            "brand_name": brand_name,
-            "image_url": image_url,
-            "created_time": datetime.utcnow().isoformat(),
-            "last_updated_time": datetime.utcnow().isoformat(),
-            "chat_history": [],
-            "preloaded_context": initial_context,
-            "initial_message": initial_message
-        }
-        
-        # Save chat data
-        print(f"Saving for product {product_id} and cookie {cookie_id}")
-        save_chat(cookie_id, product_id, chat_id, chat_data)
-        
-        #initialize_agents_data(initial_context['product']["metadata"])
-        
-        return chat_data
-        
+        try:
+            # Try to get existing chat
+            chat_data = get_chat(cookie_id, product_id)
+            return chat_data
+        except:
+            # If no existing chat, create new one
+            initial_context = get_initial_context(product_id)
+            product_name = initial_context['product']["metadata"]["product"]
+            brand_name = initial_context['product']["metadata"]["brand"]
+            image_url = initial_context['product']['metadata']['image_url']
+            
+            # Create chat session data
+            chat_data = {
+                "product_id": product_id,
+                "product_name": product_name,
+                "brand_name": brand_name,
+                "image_url": image_url,
+                "chat_history": [],
+                "preloaded_context": initial_context,
+            }
+            
+            # Save chat data
+            save_chat(cookie_id, product_id, chat_data)
+            return chat_data
+            
     except Exception as e:
         print(f"Error initializing chat: {str(e)}")
         raise
 
-def handle_chat_message(cookie_id: str, product_id: str, chat_id: str, user_question: str) -> Generator[str, None, None]:
+def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> Generator[str, None, None]:
     """Handle a chat message and return the response"""
     try:
         # Get chat data
-        chat_data = get_chat(cookie_id, product_id, chat_id)
+        chat_data = get_chat(cookie_id, product_id)
         if not chat_data:
             raise Exception("Chat not found")
             
@@ -168,7 +160,7 @@ def handle_chat_message(cookie_id: str, product_id: str, chat_id: str, user_ques
         })
         
         chat_data["last_updated_time"] = datetime.utcnow().isoformat()
-        save_chat(cookie_id, product_id, chat_id, chat_data)
+        save_chat(cookie_id, product_id, chat_data)
         
     except Exception as e:
         print(f"Error handling message: {str(e)}")

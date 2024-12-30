@@ -106,9 +106,6 @@ def get_product_suggestions(query: str, max_suggestions: int = 5):
         # Create a search query focused on product names
         search_query = f"Product name suggestion: {normalized_query}"
         
-        # Get vector embeddings for the query
-        query_embedding = embeddings.embed_query(search_query)
-        
         # Search using the embedded query
         search_results = pinecone_vector_store.similarity_search_with_relevance_scores(
             search_query,

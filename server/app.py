@@ -9,6 +9,7 @@ CORS(app, resources={
     r"/start-chat": {"origins": ["http://localhost:3000"]},
     r"/product-suggestions": {"origins": ["http://localhost:3000"]},
     r"/chat": {"origins": ["http://localhost:3000"]},
+    r"/auth/*": {"origins": ["http://localhost:3000"]},
     r"/chat/*": {"origins": ["http://localhost:3000"]}
 })
 
