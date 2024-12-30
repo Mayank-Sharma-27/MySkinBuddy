@@ -1,37 +1,84 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { GoogleLogin } from "@react-oauth/google";
+import { useAuth } from "../contexts/AuthContext";
+import { useCookie } from "../utils/CookieProvider";
 
-export function LoginForm() {
+interface LoginFormProps {
+  onSuccess?: () => void;
+}
+
+export function LoginForm({ onSuccess }: LoginFormProps) {
   const router = useRouter();
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { setLoggedIn } = useAuth();
+  const cookieId = useCookie();
 
-  const handleGoogleLogin = async () => {
-    console.log("Google login clicked");
-    // Will implement later
-  };
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const handleFacebookLogin = async () => {
-    console.log("Facebook login clicked");
-    // Will implement later
+      if (!cookieId) {
+        setError("Session error. Please refresh the page.");
+        return;
+      }
+
+      const response = await fetch("http://localhost:8080/auth/google-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Cookie-ID": cookieId,
+        },
+        body: JSON.stringify({
+          token: credentialResponse.credential,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        setLoggedIn(data.user_email);
+        if (onSuccess) {
+          onSuccess();
+        }
+        router.refresh();
+      } else {
+        setError(data.error || "Login failed");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("Failed to login. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="w-full max-w-md space-y-6">
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>
+        <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+          {error}
+        </div>
       )}
 
-      <button
-        onClick={handleGoogleLogin}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-colors"
-      >
-        <Image src="/google.svg" alt="Google" width={20} height={20} />
-        <span>Continue with Google</span>
-      </button>
+      <div className="w-full flex justify-center">
+        <GoogleLogin
+          onSuccess={handleGoogleLogin}
+          onError={() => {
+            setError("Google Login Failed");
+          }}
+          useOneTap
+          theme="outline"
+          size="large"
+          text="continue_with"
+          shape="rectangular"
+        />
+      </div>
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
@@ -41,15 +88,6 @@ export function LoginForm() {
           <span className="px-2 bg-white text-gray-500">or</span>
         </div>
       </div>
-
-      <button
-        onClick={handleFacebookLogin}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 text-white bg-[#1877F2] rounded-lg hover:bg-[#1864D9] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1877F2] transition-colors"
-      >
-        <Image src="/facebook.svg" alt="Facebook" width={20} height={20} />
-        <span>Continue with Facebook</span>
-      </button>
 
       <button
         onClick={() => window.open("https://productbuddy.xyz", "_blank")}

@@ -67,7 +67,7 @@ export default function RecentChats() {
 
       const data = await response.json();
       if (data.status === "success") {
-        router.push(`/chat/${chat.product_id}?chat_id=${data.chat_id}`);
+        router.push(`/chat/${chat.product_id}`);
       } else {
         throw new Error(data.error || "Failed to start chat");
       }
@@ -97,7 +97,7 @@ export default function RecentChats() {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <h2 className="text-[#a984b2] text-2xl font-medium mb-6">Recent Chats</h2>
+      <h2 className="text-[#a984b2] text-2xl font-medium mb-6">Recent Products</h2>
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
         {recentChats.map((chat) => (
           <div

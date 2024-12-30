@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { CookieProvider } from "./utils/CookieProvider";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,15 +18,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <script
-          src="https://accounts.google.com/gsi/client"
-          async
-          defer
-        ></script>
-      </head>
       <body className={inter.className}>
-        <CookieProvider>{children}</CookieProvider>
+        <GoogleOAuthProvider
+          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
+        >
+          <AuthProvider>{children}</AuthProvider>
+        </GoogleOAuthProvider>
       </body>
     </html>
   );
