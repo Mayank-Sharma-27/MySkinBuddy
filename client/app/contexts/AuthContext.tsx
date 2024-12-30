@@ -12,7 +12,8 @@ import { getCookieId } from "../utils/cookies";
 interface AuthContextType {
   isLoggedIn: boolean;
   userEmail: string | null;
-  setLoggedIn: (email: string) => void;
+  userName: string | null;
+  setLoggedIn: (email: string, name: string) => void;
   setLoggedOut: () => void;
   checkAuthStatus: () => Promise<void>;
 }
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   const checkAuthStatus = async () => {
     try {
@@ -38,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.status === "success") {
         setIsLoggedIn(true);
         setUserEmail(data.user_email);
+        setUserName(data.user_name);
       }
     } catch (error) {
       console.error("Auth check failed:", error);
@@ -51,13 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     isLoggedIn,
     userEmail,
-    setLoggedIn: (email: string) => {
+    userName,
+    setLoggedIn: (email: string, name: string) => {
       setIsLoggedIn(true);
       setUserEmail(email);
+      setUserName(name);
     },
     setLoggedOut: () => {
       setIsLoggedIn(false);
       setUserEmail(null);
+      setUserName(null);
     },
     checkAuthStatus,
   };

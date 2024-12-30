@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useDebounce } from "../hooks/useDebounce";
 import Image from "next/image";
 import { getCookieId } from "../utils/cookies";
+import { Button } from "./ui/Button";
 
 interface Product {
   product_id: string;
@@ -99,8 +100,13 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
 
       const data = await response.json();
       if (data.status === "success") {
-        localStorage.setItem(`chat_data_${data.chat_data.chat_id}`, JSON.stringify(data.chat_data));
-        router.push(`/chat/${product.product_id}?chat_id=${data.chat_data.chat_id}`);
+        localStorage.setItem(
+          `chat_data_${data.chat_data.chat_id}`,
+          JSON.stringify(data.chat_data)
+        );
+        router.push(
+          `/chat/${product.product_id}?chat_id=${data.chat_data.chat_id}`
+        );
       } else {
         throw new Error(data.error || "Failed to start chat");
       }
@@ -111,46 +117,43 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
-      <form onSubmit={handleSubmit} className="flex">
+      <form onSubmit={handleSubmit} className="flex gap-4">
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onFocus={() => setShowDropdown(true)}
           placeholder="Search for a product..."
-          className="w-full p-4 border border-gray-300 rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#a984b2] focus:border-transparent"
+          className="flex-1 px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-colors"
         />
-        <button
-          type="submit"
-          className="px-6 bg-[#a984b2] text-white rounded-r-lg hover:bg-[#8e6d97] transition-colors"
-        >
+        <Button type="submit" variant="gradient" size="lg">
           Search
-        </button>
+        </Button>
       </form>
 
       {showDropdown && searchTerm.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto">
+        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200/50 max-h-96 overflow-y-auto">
           {isLoading ? (
             <div className="p-4 text-gray-500">Loading...</div>
           ) : products.length > 0 ? (
-            <div className="py-2">
+            <div className="divide-y divide-gray-100">
               {products.map((product) => (
                 <div
                   key={product.product_id}
                   onClick={() => handleProductSelect(product)}
-                  className="flex items-center gap-4 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <div className="relative w-12 h-12 flex-shrink-0">
                     <Image
                       src={product.image_url || "/placeholder-product.png"}
                       alt={product.product}
                       fill
-                      className="object-cover rounded"
+                      className="object-cover rounded-lg"
                       sizes="48px"
                     />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-800">
+                    <div className="font-medium text-gray-900">
                       {product.product}
                     </div>
                     <div className="text-sm text-gray-500">{product.brand}</div>
