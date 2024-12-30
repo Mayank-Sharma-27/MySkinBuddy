@@ -4,92 +4,197 @@ MySkinBuddy is an intelligent skincare assistant that helps users discover and u
 
 ## Features
 
-- **Product Search**: Search and discover skincare products by brand and name
-- **Interactive Chat**: Have natural conversations about skincare products and their ingredients
-- **Ingredient Analysis**: Get detailed information about skincare ingredients and their benefits
-- **Smart Recommendations**: Receive personalized product suggestions based on skin concerns
-- **Product Comparisons**: Compare different products and their ingredient compositions
+### Core Features
 
-## Technical Architecture
+- **AI Skincare Assistant**: Intelligent chat-based skincare recommendations and advice
+- **Product Search & Discovery**: Advanced search with auto-complete and filtering
+- **User Authentication**: Secure login with email/password and Google OAuth
+- **Chat History**: Persistent chat history and session management
+- **Product Database**: Comprehensive skincare product and ingredient catalog
 
-### Backend (Python/Flask)
-- **Vector Database**: Pinecone for storing and retrieving product embeddings
-- **LLM Integration**: Together AI for natural language processing
-- **Storage**: AWS S3 for product and ingredient data storage
+### Technical Features
 
-### Frontend (Next.js)
 - **Real-time Chat**: Interactive chat interface with streaming responses
-- **Product Search**: Dynamic product search with image display
-- **Responsive Design**: Mobile-friendly interface
+- **Smart Recommendations**: AI-powered product suggestions based on skin type and concerns
+- **Ingredient Analysis**: Detailed breakdown and compatibility checking
+- **Vector Search**: Semantic search for products and ingredients
+- **Multi-Agent System**: Specialized AI agents for different aspects of skincare
 
-## Data Structure
+## Architecture
 
-### Product Data
-- Product information
-- Ingredient details
-- Benefits and concerns
-- Usage instructions
+### Frontend (Next.js 14)
 
-### Embeddings
-- Product embeddings
-- Ingredient embeddings
-- Relationship mappings
+- TypeScript-based React components
+- Tailwind CSS for styling
+- Context-based state management
+- Responsive and accessible design
 
-## Setup
+### Backend (Flask 3.0)
 
-1. Clone the repository
-2. Set up environment variables:
+- Python 3.9+ based REST API
+- LangChain for AI/ML operations
+- AWS S3 for data storage
+- Pinecone for vector database
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.9+
+- Node.js 18+
+- AWS Account
+- Google OAuth credentials
+- Pinecone Account
+- OpenAI API key
+
+### Environment Setup
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yourusername/MySkinBuddy.git
+   cd MySkinBuddy
    ```
-   TOGETHER_API_KEY=your_key
-   PINECONE_API_KEY=your_key
+
+2. Set up backend environment:
+
+   ```bash
+   cd server
+   python -m venv venv
+   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. Configure backend environment variables:
+
+   ```env
    AWS_ACCESS_KEY_ID=your_key
    AWS_SECRET_ACCESS_KEY=your_key
+   GOOGLE_CLIENT_ID=your_key
+   OPENAI_API_KEY=your_key
+   PINECONE_API_KEY=your_key
    ```
 
-3. Install dependencies:
-   ```bash
-   # Backend
-   cd server
-   pip install -r requirements.txt
+4. Set up frontend environment:
 
-   # Frontend
+   ```bash
    cd client
    npm install
    ```
 
-4. Run the development servers:
-   ```bash
-   # Backend
-   python run.py
-
-   # Frontend
-   npm run dev
+5. Configure frontend environment variables:
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:8080
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
    ```
 
-## API Endpoints
+### Running the Application
 
-- `/search-products`: Search for products by name and brand
-- `/chat`: Interactive product chat endpoint
-- `/product-info`: Detailed product information
+1. Start the backend server:
 
-## Development Guidelines
+   ```bash
+   cd server
+   python -m flask run --port 8080
+   ```
 
-- Use consistent code formatting
-- Add appropriate type hints in Python code
-- Follow React best practices for frontend components
-- Document new API endpoints and features
+   The backend will be available at `http://localhost:8080`
 
-## Future Enhancements
+2. Start the frontend development server:
+   ```bash
+   cd client
+   npm run dev
+   ```
+   The frontend will be available at `http://localhost:3000`
 
-- Enhanced product comparison features
-- Ingredient interaction analysis
-- Personalized skincare routine recommendations
-- Integration with e-commerce platforms
+## Project Structure
+
+```
+MySkinBuddy/
+├── client/                 # Frontend Next.js application
+│   ├── app/               # Next.js app directory
+│   │   ├── components/    # React components
+│   │   ├── contexts/      # React contexts
+│   │   ├── hooks/        # Custom hooks
+│   │   └── utils/        # Utility functions
+│   └── public/           # Static assets
+├── server/                # Backend Flask application
+│   ├── service/          # Business logic services
+│   │   └── agents/       # AI agents
+│   ├── views/            # API route handlers
+│   └── scrapers/         # Data collection scripts
+└── docs/                 # Documentation
+    ├── frontend/         # Frontend documentation
+    ├── backend/          # Backend documentation
+    └── features/         # Feature documentation
+```
+
+## API Documentation
+
+### Authentication Endpoints
+
+- `POST /auth/google-login`: Google OAuth login
+- `POST /auth/register`: User registration
+- `POST /auth/login`: Email/password login
+- `GET /auth/verify`: Token verification
+
+### Chat Endpoints
+
+- `POST /chat`: Send message to AI
+- `GET /chat/history`: Get chat history
+- `GET /recent-chats`: Get recent conversations
+
+### Product Endpoints
+
+- `GET /search-products`: Search products
+- `GET /product-suggestions`: Get product suggestions
+- `GET /products/<id>`: Get product details
+
+## Development
+
+### Code Style
+
+- Python: PEP 8 guidelines
+- TypeScript: ESLint + Prettier
+- Git commit messages: Conventional Commits
+
+### Testing
+
+- Backend: Unit tests with pytest
+- Frontend: React Testing Library
+- E2E: Cypress
+
+## Deployment
+
+### Requirements
+
+- Python 3.9+
+- Node.js 18+
+- AWS S3 bucket
+- Pinecone instance
+- Google OAuth credentials
+
+### Configuration
+
+- CORS settings
+- Environment variables
+- AWS IAM permissions
+
+## Documentation
+
+Detailed documentation is available in the `docs` directory:
+
+- [Frontend Documentation](docs/frontend/README.md)
+- [Backend Documentation](docs/backend/README.md)
+- [Features Documentation](docs/features/README.md)
 
 ## Contributing
 
-Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE.md file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
