@@ -99,14 +99,12 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
       }
 
       const data = await response.json();
-      if (data.status === "success") {
+      if (data.status === "success" && data.chat_data) {
         localStorage.setItem(
-          `chat_data_${data.chat_data.chat_id}`,
+          `chat_data_${product.product_id}`,
           JSON.stringify(data.chat_data)
         );
-        router.push(
-          `/chat/${product.product_id}?chat_id=${data.chat_data.chat_id}`
-        );
+        router.replace(`/chat/${product.product_id}`);
       } else {
         throw new Error(data.error || "Failed to start chat");
       }

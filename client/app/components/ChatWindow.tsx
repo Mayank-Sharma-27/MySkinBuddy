@@ -12,11 +12,26 @@ interface Message {
   timestamp: string;
 }
 
-interface ChatWindowProps {
-  productId: string;
+interface ChatData {
+  chat_history: any[];
+  product_id: string;
+  product_name: string;
+  brand_name: string;
+  image_url: string;
+  preloaded_context: any;
 }
 
-export function ChatWindow({ productId }: ChatWindowProps) {
+interface ChatWindowProps {
+  productId: string;
+  chatData: ChatData;
+  fullPage?: boolean;
+}
+
+export function ChatWindow({
+  productId,
+  chatData,
+  fullPage = false,
+}: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,30 +47,28 @@ export function ChatWindow({ productId }: ChatWindowProps) {
   }, [messages]);
 
   useEffect(() => {
-    const loadChatHistory = async () => {
-      try {
-        if (!cookieId) return;
+    // Initialize messages from chat data
+    if (chatData) {
+      const welcomeMessage = {
+        id: "welcome",
+        content: `Hi! I am ${chatData.product_name} from ${chatData.brand_name}. Please let me help you.`,
+        isUser: false,
+        timestamp: new Date().toISOString(),
+      };
 
-        const response = await fetch(
-          `http://localhost:8080/chat/${productId}/history`,
-          {
-            headers: {
-              "X-Cookie-ID": cookieId,
-            },
-          }
-        );
+      const formattedMessages = chatData.chat_history.map((msg: any) => ({
+        id: msg.id || Date.now().toString(),
+        content: msg.content,
+        isUser: msg.role === "user",
+        timestamp: msg.timestamp || new Date().toISOString(),
+      }));
 
-        const data = await response.json();
-        if (data.status === "success") {
-          setMessages(data.messages);
-        }
-      } catch (error) {
-        console.error("Error loading chat history:", error);
-      }
-    };
-
-    loadChatHistory();
-  }, [productId, cookieId]);
+      // Only add welcome message if there's no chat history
+      setMessages(
+        formattedMessages.length > 0 ? formattedMessages : [welcomeMessage]
+      );
+    }
+  }, [chatData]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,29 +86,68 @@ export function ChatWindow({ productId }: ChatWindowProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `http://localhost:8080/chat/${productId}/message`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Cookie-ID": cookieId,
-          },
-          body: JSON.stringify({ message: inputMessage }),
-        }
-      );
+      const response = await fetch("http://localhost:8080/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Cookie-ID": cookieId,
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          message: inputMessage,
+        }),
+      });
 
-      const data = await response.json();
-      if (data.status === "success") {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            content: data.response,
-            isUser: false,
-            timestamp: new Date().toISOString(),
-          },
-        ]);
+      if (!response.ok) throw new Error("Failed to send message");
+
+      const reader = response.body?.getReader();
+      let partialResponse = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = new TextDecoder().decode(value);
+          const lines = (partialResponse + chunk).split("\n");
+          partialResponse = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.content) {
+                  setMessages((prev) => {
+                    const lastMessage = prev[prev.length - 1];
+                    if (!lastMessage.isUser) {
+                      // Update existing assistant message
+                      return [
+                        ...prev.slice(0, -1),
+                        {
+                          ...lastMessage,
+                          content: lastMessage.content + data.content,
+                        },
+                      ];
+                    } else {
+                      // Create new assistant message
+                      return [
+                        ...prev,
+                        {
+                          id: Date.now().toString(),
+                          content: data.content,
+                          isUser: false,
+                          timestamp: new Date().toISOString(),
+                        },
+                      ];
+                    }
+                  });
+                }
+              } catch (e) {
+                console.error("Error parsing SSE data:", e);
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -105,7 +157,11 @@ export function ChatWindow({ productId }: ChatWindowProps) {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div
+      className={`flex flex-col ${
+        fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
+      }`}
+    >
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage
