@@ -58,29 +58,45 @@ class AuthService:
         Handle Google login. Updates existing cookie with user info
         """
         try:
-            # Verify Google token
-            idinfo = id_token.verify_oauth2_token(
-                token, requests.Request(), 
-                GOOGLE_CLIENT_ID
-            )
-            user_email = idinfo['email']
-            
-            # Get existing cookie data
+            # Get existing cookie data first
             cookie_data = self.cookie_service.get_cookie_data(cookie_id)
             if not cookie_data:
-                raise ValueError("Invalid cookie")
+                cookie_data = {}  # Initialize empty cookie data if none exists
+            
+            # Verify Google token
+            try:
+                idinfo = id_token.verify_oauth2_token(
+                    token, 
+                    requests.Request(), 
+                    GOOGLE_CLIENT_ID,
+                    clock_skew_in_seconds=10
+                )
+                
+                # Check if the token is issued by Google
+                if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                    raise ValueError("Wrong issuer")
+                    
+                user_email = idinfo['email']
+                if not user_email:
+                    raise ValueError("Email not found in token")
+                    
+            except Exception as e:
+                print(f"Detailed token verification error: {str(e)}")
+                raise ValueError(f"Token verification failed: {str(e)}")
             
             # Update cookie with user info
             cookie_data.update({
                 "user_email": user_email,
                 "is_logged_in": True,
-                "last_login": datetime.utcnow().isoformat()
+                "last_login": datetime.utcnow().isoformat(),
+                "login_type": "google"
             })
+            print("Google login successful")
             
             # Save updated cookie data
             self.cookie_service.save_cookie_data(cookie_id, cookie_data)
             
-            # Save user login info
+            # Save or update user login info
             user_data = {
                 "email": user_email,
                 "last_login": datetime.utcnow().isoformat(),
@@ -97,11 +113,11 @@ class AuthService:
             }
             
         except ValueError as e:
-            print(f"Token verification failed: {str(e)}")
-            raise ValueError("Invalid token")
-        except Exception as e:
-            print(f"Login error: {str(e)}")
+            print(f"Google login error: {str(e)}")
             raise
+        except Exception as e:
+            print(f"Unexpected login error: {str(e)}")
+            raise ValueError("Login failed due to an unexpected error")
 
     def verify_cookie(self, cookie_id: str) -> Optional[str]:
         """Verify cookie and return user email if valid"""
