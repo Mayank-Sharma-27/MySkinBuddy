@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { Button } from "./ui/Button";
 import { useCookie } from "../utils/CookieProvider";
+import { useAuth } from "../contexts/AuthContext";
+import dynamic from "next/dynamic";
+
+const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
 
 interface Message {
   id: string;
@@ -35,8 +39,38 @@ export function ChatWindow({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cookieId = useCookie();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    const checkMessageLimit = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8080/check-message-limit",
+          {
+            headers: {
+              "X-Cookie-ID": cookieId || "",
+            },
+          }
+        );
+
+        if (response.status === 403) {
+          const data = await response.json();
+          if (data.requires_login) {
+            setShowLoginModal(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking message limit:", error);
+      }
+    };
+
+    if (!isAuthenticated && cookieId) {
+      checkMessageLimit();
+    }
+  }, [cookieId, isAuthenticated]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -98,7 +132,14 @@ export function ChatWindow({
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 403 && errorData.requires_login) {
+          setShowLoginModal(true);
+          return;
+        }
+        throw new Error("Failed to send message");
+      }
 
       const reader = response.body?.getReader();
       let partialResponse = "";
@@ -151,47 +192,66 @@ export function ChatWindow({
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          content:
+            "Sorry, there was an error sending your message. Please try again.",
+          isUser: false,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div
-      className={`flex flex-col ${
-        fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
-      }`}
-    >
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message.content}
-            isUser={message.isUser}
-            timestamp={message.timestamp}
-          />
-        ))}
-        <div ref={messagesEndRef} />
+    <>
+      <div
+        className={`flex flex-col ${
+          fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
+        }`}
+      >
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              message={message.content}
+              isUser={message.isUser}
+              timestamp={message.timestamp}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form
+          onSubmit={handleSendMessage}
+          className="p-4 bg-white border-t border-gray-200"
+        >
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Ask about the product..."
+              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-colors"
+              disabled={isLoading}
+            />
+            <Button type="submit" variant="gradient" disabled={isLoading}>
+              {isLoading ? "Sending..." : "Send"}
+            </Button>
+          </div>
+        </form>
       </div>
 
-      <form
-        onSubmit={handleSendMessage}
-        className="p-4 bg-white border-t border-gray-200"
-      >
-        <div className="flex gap-4">
-          <input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Ask about the product..."
-            className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-colors"
-            disabled={isLoading}
-          />
-          <Button type="submit" variant="gradient" disabled={isLoading}>
-            {isLoading ? "Sending..." : "Send"}
-          </Button>
-        </div>
-      </form>
-    </div>
+      {showLoginModal && (
+        <LoginModal
+          message="Please login to continue chatting. You have reached the message limit for anonymous users."
+          onClose={() => setShowLoginModal(false)}
+        />
+      )}
+    </>
   );
 }
