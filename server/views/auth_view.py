@@ -99,16 +99,21 @@ def verify_auth():
     cookie_id = request.headers.get('X-Cookie-ID')
     
     if not cookie_id:
-        return jsonify({"error": "Not authenticated"}), 401
+        return jsonify({"error": "Not authenticated"})
         
     user_email = auth_service.verify_cookie(cookie_id)
     if not user_email:
-        return jsonify({"error": "Not authenticated as user email not found"}), 401
+        return jsonify({"error": "Not authenticated as user email not found"})
+        
+    # Get cookie data to fetch user name
+    cookie_data = auth_service.cookie_service.get_cookie_data(cookie_id)
+    user_name = cookie_data.get('user_name', user_email.split('@')[0]) if cookie_data else user_email.split('@')[0]
         
     return jsonify({
         "status": "success",
         "authenticated": True,
-        "user_email": user_email
+        "user_email": user_email,
+        "user_name": user_name
     })
 
 def register(app, options=None):

@@ -80,6 +80,11 @@ class AuthService:
                 if not user_email:
                     raise ValueError("Email not found in token")
                     
+                # Get user's name from Google token
+                user_name = idinfo.get('name', '')
+                if not user_name:
+                    user_name = user_email.split('@')[0]  # Fallback to email username
+                    
             except Exception as e:
                 print(f"Detailed token verification error: {str(e)}")
                 raise ValueError(f"Token verification failed: {str(e)}")
@@ -87,6 +92,7 @@ class AuthService:
             # Update cookie with user info
             cookie_data.update({
                 "user_email": user_email,
+                "user_name": user_name,
                 "is_logged_in": True,
                 "last_login": datetime.utcnow().isoformat(),
                 "login_type": "google"
@@ -99,6 +105,7 @@ class AuthService:
             # Save or update user login info
             user_data = {
                 "email": user_email,
+                "name": user_name,
                 "last_login": datetime.utcnow().isoformat(),
                 "cookie_id": cookie_id,
                 "login_type": "google"
