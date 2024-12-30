@@ -1,8 +1,42 @@
 from flask import Blueprint, jsonify, request, Response, stream_with_context
 from service.product_chat import initialize_chat, handle_chat_message
+from service.chat_service import get_total_message_count
+from service.auth import AuthService
 import json
 
+auth_service = AuthService()
+
 chat_view = Blueprint('chat_view', __name__)
+
+def check_message_limit(cookie_id: str) -> dict:
+    """Helper function to check if user has reached message limit"""
+    user_email = auth_service.verify_cookie(cookie_id)
+    if not user_email:
+        message_count = get_total_message_count(cookie_id)
+        if message_count >= 10:
+            return {
+                'error': 'Message limit reached',
+                'requires_login': True,
+                'message': 'Please login to continue chatting'
+            }
+    return None
+
+@chat_view.route('/check-message-limit', methods=['GET'])
+def get_message_limit_status():
+    try:
+        cookie_id = request.headers.get('X-Cookie-ID')
+        if not cookie_id:
+            return jsonify({'error': 'Cookie ID is required'}), 400
+            
+        limit_status = check_message_limit(cookie_id)
+        if limit_status:
+            return jsonify(limit_status), 403
+            
+        return jsonify({'status': 'ok'})
+        
+    except Exception as e:
+        print(f"Error checking message limit: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @chat_view.route('/start-chat', methods=['POST'])
 def start_chat():
@@ -38,6 +72,11 @@ def chat():
         
         if not all([cookie_id, product_id, user_message]):
             return jsonify({'error': 'Missing required parameters'}), 400
+
+        # Use the shared helper function to check message limit
+        limit_status = check_message_limit(cookie_id)
+        if limit_status:
+            return jsonify(limit_status), 403
 
         def generate():
             try:

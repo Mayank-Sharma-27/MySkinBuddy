@@ -109,3 +109,15 @@ def initialize_agents_data(product_data: dict):
         except Exception as e:
             print(f"Error in recommendations agent: {str(e)}")
     run_product_info()
+
+def get_total_message_count(cookie_id: str) -> int:
+    """Get total number of messages across all chats for a user"""
+    try:
+        chats = get_all_chats_from_s3(cookie_id)
+        total_messages = 0
+        for chat in chats:
+            total_messages += len(chat.get("chat_history", []))
+        return total_messages
+    except Exception as e:
+        print(f"Error getting total message count: {str(e)}")
+        raise
