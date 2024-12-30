@@ -1,30 +1,35 @@
-'use client';
-import { useState } from 'react';
-import { LoginForm } from '../components/LoginForm';
-import { RegisterForm } from '../components/RegisterForm';
-import { Navbar } from '../components/Navbar';
+"use client";
 
-export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { LoginForm } from "../components/LoginForm";
+import { useAuth } from "../contexts/AuthContext";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { isLoggedIn, checkAuthStatus } = useAuth();
+
+  useEffect(() => {
+    // Check auth status when component mounts
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  useEffect(() => {
+    // Redirect to home if logged in
+    if (isLoggedIn) {
+      router.replace("/");
+    }
+  }, [isLoggedIn, router]);
+
+  // Show loading or nothing while checking auth status
+  if (isLoggedIn) {
+    return null;
+  }
 
   return (
-    <div>
-      <Navbar />
-      <div className="min-h-screen bg-[#faf4f4]">
-        <div className="max-w-4xl mx-auto px-4 py-12">
-          <h1 className="text-4xl font-bold text-center mb-8 text-[#a984b2]">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </h1>
-          
-          <div className="flex justify-center">
-            {isLogin ? (
-              <LoginForm onToggleForm={() => setIsLogin(false)} />
-            ) : (
-              <RegisterForm onToggleForm={() => setIsLogin(true)} />
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold mb-8 text-purple-600">Welcome Back</h1>
+      <LoginForm />
+    </main>
   );
-} 
+}

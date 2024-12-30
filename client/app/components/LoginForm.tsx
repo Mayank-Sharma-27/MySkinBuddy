@@ -28,6 +28,12 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         return;
       }
 
+      if (!credentialResponse?.credential) {
+        setError("Failed to get Google credentials");
+        return;
+      }
+
+      console.log("Sending token to backend...");
       const response = await fetch("http://localhost:8080/auth/google-login", {
         method: "POST",
         headers: {
@@ -40,6 +46,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       });
 
       const data = await response.json();
+      console.log("Backend response:", data);
 
       if (data.status === "success") {
         setLoggedIn(data.user_email);
@@ -49,6 +56,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         router.refresh();
       } else {
         setError(data.error || "Login failed");
+        console.error("Login error details:", data);
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -77,6 +85,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           size="large"
           text="continue_with"
           shape="rectangular"
+          scope="email profile"
         />
       </div>
 
