@@ -122,7 +122,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
     <div className="relative w-full max-w-3xl mx-auto" ref={dropdownRef}>
       <form onSubmit={handleSubmit}>
         <div className="relative">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 flex items-center pointer-events-none">
             <svg
               className="h-5 w-5 text-gray-400"
               fill="none"
@@ -147,7 +147,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
               setShowDropdown(true);
             }}
             onBlur={() => setIsFocused(false)}
-            placeholder="Search for a product..."
+            placeholder="Seach any product..."
             className={`w-full pl-8 pr-10 py-3.5 rounded-2xl border-2 bg-white/80 backdrop-blur-sm
                        transition-all duration-200 outline-none
                        ${

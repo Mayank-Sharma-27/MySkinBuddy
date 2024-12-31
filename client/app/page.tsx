@@ -78,10 +78,10 @@ export default function Home() {
                   Know Your Next Product
                 </h1>
                 <p className="text-xl text-gray-600 mb-10">
-                  Research everything about your next skincare product.
+                  Ask questions directly to your skincare products.
                 </p>
 
-                <div className="mb-16">
+                <div className="mb-10">
                   <SearchBar onSearch={handleSearch} />
                 </div>
               </div>
