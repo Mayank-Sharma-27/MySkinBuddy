@@ -1,6 +1,7 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { API_URL } from "../config";
 
 interface RegisterFormProps {
   onToggleForm: () => void;
@@ -9,44 +10,44 @@ interface RegisterFormProps {
 export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: ''
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/auth/register', {
-        method: 'POST',
-        credentials: 'include',
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: formData.email,
-          password: formData.password
+          password: formData.password,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
+        throw new Error(data.error || "Registration failed");
       }
 
-      router.push('/');
+      router.push("/");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,9 +58,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   return (
     <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-          {error}
-        </div>
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -71,7 +70,9 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
             type="email"
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a984b2]"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
             required
           />
         </div>
@@ -84,7 +85,9 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
             type="password"
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a984b2]"
             value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, password: e.target.value })
+            }
             required
           />
         </div>
@@ -97,7 +100,9 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
             type="password"
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a984b2]"
             value={formData.confirmPassword}
-            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, confirmPassword: e.target.value })
+            }
             required
           />
         </div>
@@ -106,15 +111,19 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           type="submit"
           disabled={loading}
           className={`w-full py-2 rounded-lg text-white transition-colors
-            ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#a984b2] hover:bg-[#8e6d97]'}`}
+            ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-[#a984b2] hover:bg-[#8e6d97]"
+            }`}
         >
-          {loading ? 'Creating Account...' : 'Create Account'}
+          {loading ? "Creating Account..." : "Create Account"}
         </button>
       </form>
 
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600">
-          Already have an account?{' '}
+          Already have an account?{" "}
           <button
             onClick={onToggleForm}
             className="text-[#a984b2] hover:text-[#8e6d97]"
@@ -125,4 +134,4 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
       </div>
     </div>
   );
-} 
+}

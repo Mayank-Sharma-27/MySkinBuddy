@@ -4,13 +4,53 @@ import Navbar from "./components/Navbar";
 import { Container } from "./components/ui/Container";
 import { SearchBar } from "./components/SearchBar";
 import { useRouter } from "next/navigation";
-import { SearchIllustration } from "./components/illustrations/SearchIllustration";
-import { ChatIllustration } from "./components/illustrations/ChatIllustration";
-import { DiscoverIllustration } from "./components/illustrations/DiscoverIllustration";
 import { Footer } from "./components/Footer";
+import { useEffect, useState } from "react";
+import { useCookie } from "./utils/CookieProvider";
+import { API_URL } from "./config";
+import RecentChats from "./components/RecentChats";
+import { HowItWorks } from "./components/HowItWorks";
+
+interface Chat {
+  id: string;
+  product_name: string;
+  last_message: string;
+  timestamp: string;
+}
 
 export default function Home() {
   const router = useRouter();
+  const cookieId = useCookie();
+  const [hasRecentChats, setHasRecentChats] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkRecentChats = async () => {
+      if (!cookieId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/recent-chats`, {
+          headers: {
+            "X-Cookie-ID": cookieId,
+          },
+        });
+
+        const data = await response.json();
+        if (data.status === "success" && data.chats && data.chats.length > 0) {
+          setHasRecentChats(true);
+        }
+      } catch (error) {
+        console.error("Error checking recent chats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkRecentChats();
+  }, [cookieId]);
 
   const handleSearch = (productName: string, brandName: string) => {
     const params = new URLSearchParams();
@@ -38,8 +78,7 @@ export default function Home() {
                   Know Your Next Product
                 </h1>
                 <p className="text-xl text-gray-600 mb-10">
-                  Discover skincare products tailored to your needs. Get
-                  personalized recommendations and expert advice.
+                  Research everything about your next skincare product.
                 </p>
 
                 <div className="mb-16">
@@ -47,72 +86,22 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="w-full max-w-6xl mx-auto">
-                <h2 className="text-2xl font-semibold text-gray-900 text-center mb-12">
-                  How it works
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* Step 1: Search */}
-                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-200/50">
-                    <div className="relative w-full h-48 mb-6 rounded-lg overflow-hidden bg-white">
-                      <SearchIllustration />
-                    </div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-600 font-semibold">
-                        1
-                      </span>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Search Products
-                      </h3>
-                    </div>
-                    <p className="text-gray-600">
-                      Start by searching for any skincare product you're
-                      interested in. Our smart search helps you find products
-                      quickly with auto-suggestions.
-                    </p>
-                  </div>
-
-                  {/* Step 2: Chat */}
-                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-200/50">
-                    <div className="relative w-full h-48 mb-6 rounded-lg overflow-hidden bg-white">
-                      <ChatIllustration />
-                    </div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-600 font-semibold">
-                        2
-                      </span>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Chat with Product
-                      </h3>
-                    </div>
-                    <p className="text-gray-600">
-                      Have a conversation directly with the product. Ask about
-                      ingredients, benefits, or how it fits your skin type and
-                      concerns.
-                    </p>
-                  </div>
-
-                  {/* Step 3: Discover */}
-                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-200/50">
-                    <div className="relative w-full h-48 mb-6 rounded-lg overflow-hidden bg-white">
-                      <DiscoverIllustration />
-                    </div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-600 font-semibold">
-                        3
-                      </span>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Discover Similar
-                      </h3>
-                    </div>
-                    <p className="text-gray-600">
-                      Get recommendations for alternative products that might
-                      work better for your specific needs and preferences.
-                    </p>
+              {isLoading ? (
+                <div className="w-full max-w-6xl mx-auto text-center text-gray-600">
+                  Loading...
+                </div>
+              ) : hasRecentChats ? (
+                <div className="w-full max-w-6xl mx-auto">
+                  <h2 className="text-2xl font-semibold text-gray-900 text-center mb-8">
+                    Your Recent Conversations
+                  </h2>
+                  <div className="bg-white/60 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 overflow-hidden">
+                    <RecentChats />
                   </div>
                 </div>
-              </div>
+              ) : (
+                <HowItWorks />
+              )}
             </div>
           </Container>
         </div>

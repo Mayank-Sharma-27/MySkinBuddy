@@ -6,6 +6,7 @@ import { Button } from "./ui/Button";
 import { useCookie } from "../utils/CookieProvider";
 import { useAuth } from "../contexts/AuthContext";
 import dynamic from "next/dynamic";
+import { API_URL } from "../config";
 
 const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
 
@@ -47,14 +48,11 @@ export function ChatWindow({
   useEffect(() => {
     const checkMessageLimit = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:8080/check-message-limit",
-          {
-            headers: {
-              "X-Cookie-ID": cookieId || "",
-            },
-          }
-        );
+        const response = await fetch(`${API_URL}/check-message-limit`, {
+          headers: {
+            "X-Cookie-ID": cookieId || "",
+          },
+        });
 
         if (response.status === 403) {
           const data = await response.json();
@@ -120,7 +118,7 @@ export function ChatWindow({
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/chat", {
+      const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

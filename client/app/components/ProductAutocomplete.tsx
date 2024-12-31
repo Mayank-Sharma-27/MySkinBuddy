@@ -1,10 +1,12 @@
 "use client";
+
 import { useState, useRef, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useDebounce } from "../hooks/useDebounce";
 import Image from "next/image";
 import { getCookieId } from "../utils/cookies";
-import { Button } from "./ui/Button";
+import { API_URL } from "../config";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface Product {
   product_id: string;
@@ -22,8 +24,10 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -50,13 +54,14 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `http://localhost:8080/product-suggestions?q=${encodeURIComponent(
+          `${API_URL}/product-suggestions?q=${encodeURIComponent(
             debouncedSearchTerm
           )}`
         );
         if (!response.ok) throw new Error("Search failed");
         const data = await response.json();
         setProducts(data);
+        setShowDropdown(true);
       } catch (error) {
         console.error("Error getting suggestions:", error);
         setProducts([]);
@@ -73,6 +78,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
     if (searchTerm.trim()) {
       onSearch(searchTerm, "");
       setShowDropdown(false);
+      setSearchTerm("");
     }
   };
 
@@ -83,7 +89,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
         throw new Error("No cookie ID available");
       }
 
-      const response = await fetch("http://localhost:8080/start-chat", {
+      const response = await fetch(`${API_URL}/start-chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -114,53 +120,98 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
   };
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
-      <form onSubmit={handleSubmit} className="flex gap-4">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onFocus={() => setShowDropdown(true)}
-          placeholder="Search for a product..."
-          className="flex-1 px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-colors"
-        />
-        <Button type="submit" variant="gradient" size="lg">
-          Search
-        </Button>
+    <div className="relative w-full max-w-3xl mx-auto" ref={dropdownRef}>
+      <form onSubmit={handleSubmit}>
+        <div className="relative">
+          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => {
+              setIsFocused(true);
+              setShowDropdown(true);
+            }}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Ask about a product..."
+            className={`w-full pl-12 pr-12 py-3.5 rounded-2xl border-2 bg-white/80 backdrop-blur-sm
+                       transition-all duration-200 outline-none
+                       ${
+                         isFocused
+                           ? "border-primary-300 shadow-lg shadow-primary-100/50"
+                           : "border-gray-200 hover:border-gray-300"
+                       }
+                       placeholder:text-gray-400 placeholder:font-light
+                       text-gray-900 text-base`}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                inputRef.current?.focus();
+              }}
+              className="absolute inset-y-0 right-4 flex items-center"
+            >
+              <span className="sr-only">Clear search</span>
+              <svg
+                className="h-5 w-5 text-gray-400 hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       </form>
 
       {showDropdown && searchTerm.length > 0 && (
-        <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200/50 max-h-96 overflow-y-auto">
+        <div className="absolute z-10 left-0 right-0 mt-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-xl border border-gray-100 overflow-hidden">
           {isLoading ? (
-            <div className="p-4 text-gray-500">Loading...</div>
-          ) : products.length > 0 ? (
-            <div className="divide-y divide-gray-100">
-              {products.map((product) => (
-                <div
-                  key={product.product_id}
-                  onClick={() => handleProductSelect(product)}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  <div className="relative w-12 h-12 flex-shrink-0">
-                    <Image
-                      src={product.image_url || "/placeholder-product.png"}
-                      alt={product.product}
-                      fill
-                      className="object-cover rounded-lg"
-                      sizes="48px"
-                    />
+            <div className="p-4">
+              <div className="animate-pulse flex flex-col gap-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="w-14 h-14 bg-gray-200 rounded-lg"></div>
+                    <div className="flex-1 h-6 bg-gray-200 rounded-md"></div>
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {product.product}
-                    </div>
-                    <div className="text-sm text-gray-500">{product.brand}</div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          ) : products.length > 0 ? (
+            products.map((product) => (
+              <div
+                key={product.product_id}
+                onClick={() => handleProductSelect(product)}
+                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-100"
+              >
+                <Image
+                  src={product.image_url}
+                  alt={product.product}
+                  width={40}
+                  height={40}
+                  className="rounded-md"
+                />
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-900">
+                    {product.product}
+                  </span>
+                  <span className="text-sm text-gray-500">{product.brand}</span>
+                </div>
+              </div>
+            ))
           ) : (
-            <div className="p-4 text-gray-500">No products found</div>
+            <div className="p-4 text-gray-500">No products found.</div>
           )}
         </div>
       )}

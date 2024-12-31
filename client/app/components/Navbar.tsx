@@ -7,6 +7,7 @@ import { Button } from "./ui/Button";
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useCookie } from "../utils/CookieProvider";
+import { API_URL } from "../config";
 
 const LoginModal = dynamic(() => import("./LoginModal"), {
   ssr: false,
@@ -21,7 +22,7 @@ export default function Navbar() {
     try {
       if (!cookieId) return;
 
-      const response = await fetch("http://localhost:8080/auth/logout", {
+      const response = await fetch(`${API_URL}/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

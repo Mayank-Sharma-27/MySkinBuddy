@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useCookie } from "../utils/CookieProvider";
 import { Button } from "./ui/Button";
 import { Divider } from "./ui/Divider";
+import { API_URL } from "../config";
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -32,7 +33,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         return;
       }
 
-      const response = await fetch("http://localhost:8080/auth/google-login", {
+      const response = await fetch(`${API_URL}/auth/google-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { getCookieId } from "../utils/cookies";
+import { API_URL } from "../config";
 
 interface AuthContextType {
   isLoggedIn: boolean;
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cookieId = getCookieId();
       if (!cookieId) return;
 
-      const response = await fetch("http://localhost:8080/auth/verify", {
+      const response = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           "X-Cookie-ID": cookieId,
         },
