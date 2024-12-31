@@ -28,6 +28,7 @@ import google.api_core.exceptions
 from service.chat_service import get_chat, save_chat;
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from service.s3_client import get_s3_client
 
 duckduckgo = DDGS(timeout=20)
 
@@ -126,10 +127,21 @@ active_chats = {}
 
 def get_initial_context(product_id: str):
     """
-    Get initial context for a product including its details and all its ingredients
+    Get initial context for a product including its details and all its ingredients.
+    First checks S3 for cached context, if not found fetches from Pinecone and caches it.
     """    
     try:
-        # Get product document
+        # Check if context exists in S3
+        s3_key = f"product-context/{product_id}/product_context.json"
+        try:
+            response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+            context = json.loads(response['Body'].read().decode('utf-8'))
+            print(f"✅ Found cached context in S3 for product: {product_id}")
+            return context
+        except s3_client.exceptions.NoSuchKey:
+            print(f"🔍 No cached context found in S3 for product: {product_id}")
+            
+        # Get product document from Pinecone
         product_filter = {
             "product_id": product_id,
             "type": "product"
@@ -152,6 +164,19 @@ def get_initial_context(product_id: str):
                 "metadata": product_doc.metadata
             }
         }
+        
+        # Cache the context in S3
+        try:
+            s3_client.put_object(
+                Bucket=BUCKET_NAME,
+                Key=s3_key,
+                Body=json.dumps(context),
+                ContentType='application/json'
+            )
+            print(f"✅ Cached context in S3 for product: {product_id}")
+        except Exception as e:
+            print(f"⚠️ Failed to cache context in S3: {str(e)}")
+            
         return context
         
     except Exception as e:

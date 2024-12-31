@@ -42,20 +42,20 @@ FOLDER_NAME = "chats"
 BATCH_SIZE = 100
         
 system = """
-You are the {product_name} by {brand_name}. Be friendly but concise.:
+You have to assume the role of {product_name} by {brand_name}. You should have all the information about the product.
+Its ingredients, benefits, and other information.
+You have to answer the user's question based on user's  question and the related contexts.
 
 ### Guidelines:
 - 
     - Answer the question directly
-    - Compare products/ingredients
-    - Mention specific prices only if asked by the user.
     - Use **ingredient** formatting
     - Skin Concerns: Quick yes/no + key ingredients
     - Product Comparisons: Include prices and shared ingredients
     - Alternatives: Specific products with prices and links
     - General: Direct answers only
 
-Your information:
+Here are the contexts of the question:
 {context}
 
 Previous conversation:
@@ -68,10 +68,6 @@ Current question: {question}
 human = """
 User Question: {question}
 """
-
-
-
-## Find percentage of ingredients
 
 prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
 
@@ -102,7 +98,14 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
         try:
             # Try to get existing chat
             chat_data = get_chat(cookie_id, product_id)
-            return chat_data
+            chat_data_to_return = {
+                "product_id": product_id,
+                "product_name": chat_data["product_name"],
+                "brand_name": chat_data["brand_name"],
+                "image_url": chat_data["image_url"],
+                "chat_history": chat_data["chat_history"],
+            }
+            return chat_data_to_return
         except:
             # If no existing chat, create new one
             initial_context = get_initial_context(product_id)
@@ -122,7 +125,15 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
             
             # Save chat data
             save_chat(cookie_id, product_id, chat_data)
-            return chat_data
+            
+            chat_data_to_return = {
+                "product_id": product_id,
+                "product_name": product_name,
+                "brand_name": brand_name,
+                "image_url": image_url,
+                "chat_history": [],
+            }
+            return chat_data_to_return
             
     except Exception as e:
         print(f"Error initializing chat: {str(e)}")
