@@ -11,8 +11,13 @@ CORS(app, resources={
     r"/chat": {"origins": ["http://localhost:3000"]},
     r"/auth/*": {"origins": ["http://localhost:3000"]},
     r"/check-message-limit": {"origins": ["http://localhost:3000"]},
-    r"/chat/*": {"origins": ["http://localhost:3000"]}
+    r"/chat/*": {"origins": ["http://localhost:3000"]},
+    r"/health": {"origins": ["*"]}
 })
+
+@app.route('/health')
+def health_check():
+    return {'status': 'healthy'}, 200
 
 # Register routes
 product_view.register(app, {})
