@@ -43,7 +43,7 @@ export function ChatWindow({
   const [showLoginModal, setShowLoginModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cookieId = useCookie();
-  const { isAuthenticated } = useAuth();
+  const { isLoggedIn } = useAuth();
 
   useEffect(() => {
     const checkMessageLimit = async () => {
@@ -65,10 +65,10 @@ export function ChatWindow({
       }
     };
 
-    if (!isAuthenticated && cookieId) {
+    if (!isLoggedIn && cookieId) {
       checkMessageLimit();
     }
-  }, [cookieId, isAuthenticated]);
+  }, [cookieId, isLoggedIn]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

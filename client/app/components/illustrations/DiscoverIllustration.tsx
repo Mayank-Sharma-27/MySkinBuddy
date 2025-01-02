@@ -13,24 +13,10 @@ export function DiscoverIllustration() {
       {/* Main Product */}
       <rect x="150" y="30" width="100" height="100" rx="8" fill="#F3F4F6" />
       <rect x="165" y="45" width="70" height="70" rx="4" fill="#E5E7EB" />
-      <text
-        x="150"
-        y="150"
-        fill="#111827"
-        fontSize="12"
-        textAnchor="middle"
-        x="200"
-      >
+      <text x="200" y="150" fill="#111827" fontSize="12" textAnchor="middle">
         Vitamin C Brightening Serum
       </text>
-      <text
-        x="150"
-        y="165"
-        fill="#6B7280"
-        fontSize="10"
-        textAnchor="middle"
-        x="200"
-      >
+      <text x="200" y="165" fill="#6B7280" fontSize="10" textAnchor="middle">
         The Ordinary
       </text>
 
@@ -45,48 +31,20 @@ export function DiscoverIllustration() {
       {/* Similar Product 1 */}
       <rect x="70" y="200" width="100" height="100" rx="8" fill="#F3F4F6" />
       <rect x="85" y="215" width="70" height="70" rx="4" fill="#E5E7EB" />
-      <text
-        x="70"
-        y="290"
-        fill="#111827"
-        fontSize="11"
-        textAnchor="middle"
-        x="120"
-      >
+      <text x="120" y="290" fill="#111827" fontSize="11" textAnchor="middle">
         15% Vitamin C + Ferulic
       </text>
-      <text
-        x="70"
-        y="305"
-        fill="#6B7280"
-        fontSize="10"
-        textAnchor="middle"
-        x="120"
-      >
+      <text x="120" y="305" fill="#6B7280" fontSize="10" textAnchor="middle">
         SkinCeuticals
       </text>
 
       {/* Similar Product 2 */}
       <rect x="230" y="200" width="100" height="100" rx="8" fill="#F3F4F6" />
       <rect x="245" y="215" width="70" height="70" rx="4" fill="#E5E7EB" />
-      <text
-        x="230"
-        y="290"
-        fill="#111827"
-        fontSize="11"
-        textAnchor="middle"
-        x="280"
-      >
+      <text x="280" y="290" fill="#111827" fontSize="11" textAnchor="middle">
         20% Vitamin C Serum
       </text>
-      <text
-        x="230"
-        y="305"
-        fill="#6B7280"
-        fontSize="10"
-        textAnchor="middle"
-        x="280"
-      >
+      <text x="280" y="305" fill="#6B7280" fontSize="10" textAnchor="middle">
         Timeless
       </text>
 

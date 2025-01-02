@@ -49,7 +49,11 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
       router.push("/");
     } catch (err) {
-      setError(err.message);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An error occurred during registration"
+      );
     } finally {
       setLoading(false);
     }

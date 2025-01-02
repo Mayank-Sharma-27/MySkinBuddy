@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { ProductAutoComplete } from './ProductAutoComplete';
+import { ProductAutoComplete } from "./ProductAutocomplete";
 
 interface SearchBarProps {
   onSearch: (productName: string, brandName: string) => void;
@@ -12,4 +12,4 @@ export function SearchBar({ onSearch }: SearchBarProps) {
       <ProductAutoComplete onSearch={onSearch} />
     </div>
   );
-} 
+}

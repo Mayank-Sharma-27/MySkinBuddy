@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "../components/Navbar";
 import { ProductAutoComplete } from "../components/ProductAutocomplete";
 import { API_URL } from "../config";
@@ -14,34 +14,36 @@ interface Product {
   image_url: string;
 }
 
-const ProductSearch = () => {
+export default function ProductSearch() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = async (productName: string, brandName: string) => {
-    const params = new URLSearchParams();
-    if (productName) params.set("product", productName);
-    if (brandName) params.set("brand", brandName);
-    router.push(`/product-search?${params.toString()}`);
+  const handleSearch = useCallback(
+    async (productName: string, brandName: string) => {
+      const params = new URLSearchParams();
+      if (productName) params.set("product", productName);
+      if (brandName) params.set("brand", brandName);
+      router.push(`/product-search?${params.toString()}`);
 
-    // Fetch search results
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${API_URL}/product-suggestions?q=${encodeURIComponent(productName)}`
-      );
-      if (!response.ok) throw new Error("Search failed");
-      const data = await response.json();
-      setSearchResults(data);
-    } catch (error) {
-      console.error("Error searching products:", error);
-      setSearchResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      // Fetch search results
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `${API_URL}/product-suggestions?q=${encodeURIComponent(productName)}`
+        );
+        if (!response.ok) throw new Error("Search failed");
+        const data = await response.json();
+        setSearchResults(data);
+      } catch (error) {
+        console.error("Error searching products:", error);
+        setSearchResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [router]
+  );
 
   const handleProductSelect = async (product: Product) => {
     try {
@@ -50,14 +52,6 @@ const ProductSearch = () => {
       console.error("Error navigating to product:", error);
     }
   };
-
-  // Load initial results if there's a search query
-  useEffect(() => {
-    const product = searchParams.get("product");
-    if (product) {
-      handleSearch(product, searchParams.get("brand") || "");
-    }
-  }, [searchParams]);
 
   return (
     <div>
@@ -109,16 +103,10 @@ const ProductSearch = () => {
                   </div>
                 ))}
               </div>
-            ) : searchParams.get("product") ? (
-              <div className="mt-8 text-center text-gray-500">
-                No products found matching your search.
-              </div>
             ) : null}
           </div>
         </div>
       </main>
     </div>
   );
-};
-
-export default ProductSearch;
+}
