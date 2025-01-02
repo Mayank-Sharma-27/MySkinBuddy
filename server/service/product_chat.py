@@ -7,24 +7,18 @@ from langchain_together.embeddings import TogetherEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_community.vectorstores import InMemoryVectorStore
 from langchain_openai.embeddings import OpenAIEmbeddings
-import boto3
-import json
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
-import time
 from pinecone import Pinecone, ServerlessSpec
 from langchain.memory import ConversationBufferMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-import re
 from uuid import uuid4
 from datetime import datetime
 from service.s3_client import get_s3_client
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.tools import DuckDuckGoSearchResults
 from duckduckgo_search import DDGS
-import google.api_core.exceptions
 from service.chat_service import get_chat, save_chat, initialize_agents_data;
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -44,8 +38,9 @@ BATCH_SIZE = 100
 system = """
 You are an expert on human skincare products. You have detailed knowledge of chemicals used in skin care products that you can adivse 
 people on what product to use and when.
-You have to assume the role of {product_name} by {brand_name}. You should have all the information about the product.
-Its ingredients, benefits, and other information.
+When helping the user with the question you have to assume that you are a product with name {product_name} with brand {brand_name}. 
+You should have all the information about the product.
+specially ingredients, benefits, and other information.
 You have to answer the user's question based on user's  question and the related contexts.
 
 ### Guidelines:
@@ -57,7 +52,7 @@ You have to answer the user's question based on user's  question and the related
     - Alternatives: Specific products with prices and links
     - General: Direct answers only
 
-Here are the contexts of the question:
+Here are the contexts which will help you answer question and know more about yourself:
 {context}
 
 Previous conversation:

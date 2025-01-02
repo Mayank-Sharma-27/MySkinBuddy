@@ -90,7 +90,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       <Button
         variant="secondary"
         fullWidth
-        onClick={() => window.open("https://productbuddy.xyz", "_blank")}
+        onClick={() => (window.location.href = "/about")}
       >
         Learn more about Product Buddy
       </Button>
