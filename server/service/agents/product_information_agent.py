@@ -1,4 +1,4 @@
-from langchain_google_community import GoogleSearchAPIWrapper
+from langchain_community.utilities import GoogleSearchAPIWrapper
 from typing import Dict, Any, List
 import logging
 from service.extractors.product_info_extractor import ProductInfoExtractor

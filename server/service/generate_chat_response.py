@@ -30,7 +30,7 @@ from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
-from langchain_google_community import GoogleSearchAPIWrapper
+from langchain_community.utilities import GoogleSearchAPIWrapper
 
 
 

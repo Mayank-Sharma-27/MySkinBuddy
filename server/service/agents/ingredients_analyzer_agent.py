@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 import logging
-from langchain_google_community import GoogleSearchAPIWrapper
+from langchain_community.utilities import GoogleSearchAPIWrapper
 from service.extractors.ingredient_info_extractor import IngredientInfoExtractor
 
 class IngredientAnalyzerAgent:
