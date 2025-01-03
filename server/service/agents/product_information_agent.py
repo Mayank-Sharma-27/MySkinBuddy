@@ -1,4 +1,3 @@
-from langchain_community.utilities import GoogleSearchAPIWrapper
 from typing import Dict, Any, List
 import logging
 from service.extractors.product_info_extractor import ProductInfoExtractor
@@ -8,7 +7,6 @@ from botocore.exceptions import ClientError
 
 class ProductInformationAgent:
     def __init__(self):
-        self.search_tool = GoogleSearchAPIWrapper()
         self.extractor = ProductInfoExtractor()
         self.s3_client = boto3.client('s3')
         self.bucket_name = "product-buddy"

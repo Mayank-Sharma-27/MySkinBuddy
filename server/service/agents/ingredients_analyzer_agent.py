@@ -1,11 +1,9 @@
 from typing import Dict, Any, List
 import logging
-from langchain_community.utilities import GoogleSearchAPIWrapper
 from service.extractors.ingredient_info_extractor import IngredientInfoExtractor
 
 class IngredientAnalyzerAgent:
     def __init__(self):
-        self.search_tool = GoogleSearchAPIWrapper()
         self.extractor = IngredientInfoExtractor()
         
     def analyze_ingredients(self, product_data: Dict[str, Any]) -> Dict[str, Any]:

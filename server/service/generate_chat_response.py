@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 import time
 from pinecone import Pinecone, ServerlessSpec
-from langchain.memory import ConversationBufferMemory
+from langchain_core.memory import ConversationBufferMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 import re
 from uuid import uuid4
@@ -30,13 +30,10 @@ from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
-from langchain_community.utilities import GoogleSearchAPIWrapper
 
 
 
 duckduckgo = DDGS(timeout=20)
-
-search_tool = GoogleSearchAPIWrapper()
 load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -92,7 +89,7 @@ index = pc.Index("product-buddy-google")
 parser = StrOutputParser()
 embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-memory = ConversationBufferMemory()
+memory = ConversationBufferMemory(return_messages=True)
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
@@ -104,8 +101,8 @@ def get_search_results(product_name: str, brand_name: str):
         print(f"Search query: {search_query}")
         for attempt in range(max_retries):
             try:
-                search_results = search_tool.results(search_query, 5)
-                return search_results  # Exit the loop if successful
+                #search_results = search_tool.results(search_query, 5)
+                return "search_results"  # Exit the loop if successful
             except Exception as e:
                 if attempt == max_retries - 1:
                     print(f"⚠ Search error after {max_retries} attempts: {str(e)}")

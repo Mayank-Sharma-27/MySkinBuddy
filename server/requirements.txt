@@ -1,11 +1,13 @@
 flask>=3.0.2
 flask-cors>=4.0.0
 python-dotenv>=1.0.0
-langchain>=0.3.6,<0.4.0
+langchain>=0.1.0
 langchain-openai>=0.0.5
 langchain-together>=0.0.3
 langchain-pinecone>=0.0.1
 langchain-community>=0.0.13
+langchain-core>=0.1.0
+langchain-google-community>=0.0.1
 langchain[docarray]>=0.0.1
 docarray>=0.32.0
 pydantic>=2.7.0

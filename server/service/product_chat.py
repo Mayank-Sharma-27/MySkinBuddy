@@ -12,7 +12,6 @@ from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 from pinecone import Pinecone, ServerlessSpec
-from langchain.memory import ConversationBufferMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from uuid import uuid4
 from datetime import datetime
@@ -83,7 +82,6 @@ index = pc.Index("product-buddy-google")
 parser = StrOutputParser()
 embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-memory = ConversationBufferMemory()
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
