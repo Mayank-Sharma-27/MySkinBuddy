@@ -65,13 +65,26 @@ export default function Navbar() {
                 <>
                   <Link
                     href="/chats"
-                    className="text-sm text-gray-600 hover:text-primary-600 transition-colors"
+                    className="text-sm font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
                   >
                     My Chats
                   </Link>
+                  <Link
+                    href="/profile"
+                    className="text-sm font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+                  >
+                    My Profile
+                  </Link>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-600">{userName}</span>
-                    <Button variant="outline" size="sm" onClick={handleLogout}>
+                    <span className="text-sm font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                      {userName}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="font-bold border-primary-600 text-primary-600 hover:bg-primary-50"
+                    >
                       Sign Out
                     </Button>
                   </div>
