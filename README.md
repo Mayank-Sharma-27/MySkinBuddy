@@ -195,6 +195,22 @@ Detailed documentation is available in the `docs` directory:
 4. Push to the branch
 5. Create a Pull Request
 
+Create Image command 
+docker build -t myskinbuddy-backend .
+Logoin
+
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 117669335220.dkr.ecr.us-east-1.amazonaws.com
+
+Push the image
+
+docker push 117669335220.dkr.ecr.us-east-1.amazonaws.com/myskinbuddy-backend:latest
+
+New Deployment
+aws ecs update-service --cluster myskinbuddy-cluster --service myskinbuddy-backend-8080 --force-new-deployment | cat
+
+
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

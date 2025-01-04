@@ -21,8 +21,6 @@ load_dotenv()
 
 api_key = os.getenv("TOGETHER_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-model = ChatTogether(api_key =api_key,
-                     model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 index = pc.Index("product-buddy-google")
 

@@ -21,66 +21,24 @@ from uuid import uuid4
 from datetime import datetime
 from service.s3_client import get_s3_client
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.tools import DuckDuckGoSearchResults
 from duckduckgo_search import DDGS
-import google.api_core.exceptions
 from service.chat_service import get_chat, save_chat;
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.s3_client import get_s3_client
 
 duckduckgo = DDGS(timeout=20)
-
-
 load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
 BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "chats"
 BATCH_SIZE = 100
-        
-system = """
-You are the {product_name} by {brand_name}. Be friendly but concise.:
-
-### Guidelines:
-- 
-    - Answer the question directly
-    - Compare products/ingredients
-    - Mention specific prices only if asked by the user.
-    - Use **ingredient** formatting
-    - Skin Concerns: Quick yes/no + key ingredients
-    - Product Comparisons: Include prices and shared ingredients
-    - Alternatives: Specific products with prices and links
-    - General: Direct answers only
-
-Your information:
-{context}
-
-External research results:
-{search_results}
-
-Previous conversation:
-{chat_history}
-
-Current question: {question}
-   
-"""
-
-human = """
-User Question: {question}
-"""
-
-
-
-## Find percentage of ingredients
-
-prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
-
 api_key = os.getenv("PERPLEXITY_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 model = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash",
-    temperature=0.3,
+    temperature=0.1,
     max_tokens=None,
     timeout=30,
     max_retries=3,
@@ -94,35 +52,6 @@ embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-0
 
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
-
-def normalize_product_name(name):
-    name = name.lower()
-    
-    name = re.sub(r'[^a-z0-9\s]', '', name)
-    
-    name = ' '.join(name.split())
-    
-    return name
-
-def get_product_filter(product_name: str, brand_name: str):
-    # Debug the original values
-    print(f"Debug - Original values: Product='{product_name}', Brand='{brand_name}'")
-    
-    # Normalize the brand and product names
-    brand_name = brand_name.lower().strip()
-    product_name = product_name.lower().strip()
-    
-    # Debug the normalized values
-    print(f"Debug - Normalized values: Product='{product_name}', Brand='{brand_name}'")
-    
-    # Create a simple filter
-    return {
-        "brand": brand_name,
-        "product": product_name
-    }
-    
-# Store active chat sessions
-active_chats = {}
 
 def get_initial_context(product_id: str):
     """

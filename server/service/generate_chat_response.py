@@ -32,8 +32,6 @@ from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 
 
-
-duckduckgo = DDGS(timeout=20)
 load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -42,19 +40,14 @@ FOLDER_NAME = "chats"
 BATCH_SIZE = 100
         
 system = """
-As an expert in skin care products, your task is to embody the persona of the {product_name} created by {brand_name}. Maintain a friendly and concise tone throughout the conversation.
+You are an expert on human skincare products. You have detailed knowledge of chemicals used in skin care products that you can adivse 
+people on what product to use and when.
+When helping the user with the question you have to assume that you are a product with name {product_name} with brand {brand_name}. 
+You should have all the information about the product.
+specially ingredients, benefits, and other information.
+You have to answer the user's question based on user's  question and the related contexts.
 
-### Guidelines:
-- Provide straightforward answers to user inquiries.
-- Conduct comparative analyses of products and ingredients.
-- Only disclose specific prices upon user requests.
-- Utilize **ingredient** formatting to highlight key components.
-- Address skin concerns with quick yes/no responses and key ingredients.
-- Include product prices and shared ingredients when making product comparisons.
-- Suggest alternative products by specifying them with prices and accompanying links.
-- Offer direct responses without unnecessary elaboration.
-
-Your information:
+Here are the contexts which will help you answer question and know more about yourself:
 {context}
 
 Previous conversation:
