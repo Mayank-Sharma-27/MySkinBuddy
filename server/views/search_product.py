@@ -1,10 +1,18 @@
 from flask import Blueprint, jsonify, request
 from service.product_service import find_product_with_retriever, get_product_suggestions
+from service.message_limit_service import check_message_limit
 
 search_product_route = Blueprint('search_product', __name__)
 
 @search_product_route.route('/search-products', methods=['GET'])
 def search_products():
+    cookie_id = request.headers.get('X-Cookie-ID')
+    
+    # Check message limit
+    limit_status = check_message_limit(cookie_id)
+    if limit_status:
+        return jsonify(limit_status), 403
+    
     product = request.args.get('product')
     
     if not product:
@@ -20,6 +28,13 @@ def search_products():
     
 @search_product_route.route('/product-suggestions', methods=['GET'])
 def product_suggestions_route():
+    cookie_id = request.headers.get('X-Cookie-ID')
+    
+    # Check message limit
+    limit_status = check_message_limit(cookie_id)
+    if limit_status:
+        return jsonify(limit_status), 403
+    
     query = request.args.get('q', '')
     max_suggestions = int(request.args.get('max', '5'))
     

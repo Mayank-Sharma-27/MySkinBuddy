@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request, make_response
 from service.auth import AuthService
 from functools import wraps
+from service.message_limit_service import check_message_limit
 
 auth_view = Blueprint('auth_view', __name__)
 auth_service = AuthService()
@@ -115,6 +116,24 @@ def verify_auth():
         "user_email": user_email,
         "user_name": user_name
     })
+
+@auth_view.route('/auth/check-periodic-limit', methods=['GET'])
+def check_periodic_limit():
+    """Endpoint for periodic (5-minute) message limit checks"""
+    try:
+        cookie_id = request.headers.get('X-Cookie-ID')
+        if not cookie_id:
+            return jsonify({'error': 'Cookie ID is required'}), 400
+            
+        limit_status = check_message_limit(cookie_id)
+        if limit_status:
+            return jsonify(limit_status), 403
+            
+        return jsonify({'status': 'ok'})
+        
+    except Exception as e:
+        print(f"Error checking periodic message limit: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 def register(app, options=None):
     """Register the blueprint with the app"""
