@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from views import product_view, search_product, chat_view, auth_view, recent_chat_view
+from views import product_view, search_product, chat_view, auth_view, recent_chat_view, user_profile_view
 import boto3
 import os
 import datetime
@@ -13,6 +13,7 @@ CORS(app, resources={
     r"/product-suggestions": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/auth/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
+    r"/profile": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/check-message-limit": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/chat/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/health": {"origins": ["*"]}
@@ -44,6 +45,7 @@ search_product.register(app)
 chat_view.register(app)
 auth_view.register(app)
 recent_chat_view.register(app)
+user_profile_view.register(app)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8080)

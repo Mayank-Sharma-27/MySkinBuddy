@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 import time
 from pinecone import Pinecone, ServerlessSpec
-from langchain_core.memory import ConversationBufferMemory
+from langchain.memory import ConversationBufferMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 import re
 from uuid import uuid4
