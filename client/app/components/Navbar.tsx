@@ -64,12 +64,6 @@ export default function Navbar() {
               {isLoggedIn ? (
                 <>
                   <Link
-                    href="/chats"
-                    className="text-sm font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
-                  >
-                    My Chats
-                  </Link>
-                  <Link
                     href="/profile"
                     className="text-sm font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
                   >
