@@ -23,6 +23,7 @@ from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.generate_chat_response import generate_response 
 from service.context_builder import get_initial_context
+from service.agents.coordinator import AgentCoordinator
 
 duckduckgo = DDGS(timeout=20)
 
@@ -51,6 +52,9 @@ embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-0
 
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
+
+# Initialize coordinator
+coordinator = AgentCoordinator()
 
 def initialize_chat(cookie_id: str, product_id: str) -> dict:
     """
@@ -101,7 +105,7 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
         print(f"Error initializing chat: {str(e)}")
         raise
 
-def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> Generator[str, None, None]:
+async def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> Generator[str, None, None]:
     """Handle a chat message and return the response"""
     try:
         # Get chat data
@@ -109,16 +113,15 @@ def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> 
         if not chat_data:
             raise Exception("Chat not found")
             
-        # Generate response
+        # Generate response using coordinator
         accumulated_response = ""
-        for chunk in generate_response(chat_data, user_question):
-            if isinstance(chunk, dict):
-                content = chunk.get('content', '')
-            else:
-                content = str(chunk)
-                
-            accumulated_response += content
-            yield content
+        async for chunk in coordinator.process_question(
+            question=user_question,
+            context=chat_data,
+            chat_history=chat_data["chat_history"]
+        ):
+            accumulated_response += chunk
+            yield chunk
         
         # Update chat history
         chat_data["chat_history"].append({
