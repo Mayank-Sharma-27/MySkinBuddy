@@ -37,13 +37,126 @@ def upload_to_s3(s3_client, bucket_name: str, file_path: str, data: dict):
     except Exception as e:
         print(f"Error uploading to S3: {str(e)}")
         return False
+    
+def get_similar_products(html_content: bytes) -> dict:
+    """Extract similar products information from HTML content"""
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    similar_products = {
+        "dupes": []
+    }
+    
+    # Find all dupe containers
+    dupe_containers = soup.find_all('div', class_=lambda x: x and 'border-2 border-blue-gray-500' in x)
+    
+    for container in dupe_containers:
+        dupe_info = {}
+        product_links = container.find_all('a', class_='flex flex-col h-full items-center justify-center w-1/2 group')
+        if len(product_links) >= 2:
+            # Dupe product (first link)
+            dupe_product = product_links[0]
+            dupe_info['dupe_product'] = {
+                'url': dupe_product.get('href'),
+                'image_url': dupe_product.find('img').get('src') if dupe_product.find('img') else None
+            }
+            
+            # Original product (second link)
+            original_product = product_links[1]
+            dupe_info['original_product'] = {
+                'url': original_product.get('href'),
+                'image_url': original_product.find('img').get('src') if original_product.find('img') else None
+            }
+        
+        # Get product name and brand
+        product_title = container.find('h2', class_='font-header')
+        if product_title:
+            brand = product_title.find('span', class_='font-light')
+            dupe_info['brand'] = brand.text.strip() if brand else ''
+            # Get product name by removing brand name from full title
+            full_title = product_title.text.strip()
+            dupe_info['product_name'] = full_title.replace(dupe_info['brand'], '').strip()
+        
+        # Get match percentage
+        match_info = container.find('div', class_='bg-yellow-100')
+        if match_info:
+            match_percentage = match_info.find('span', class_='text-4xl')
+            if match_percentage:
+                dupe_info['match_percentage'] = match_percentage.text.strip()
+            
+            # Get attribute and ingredient match
+            match_details = match_info.find_all('div', class_='bg-white')
+            for detail in match_details:
+                if 'Attribute Match' in detail.text:
+                    dupe_info['attribute_match'] = detail.text.split('Attribute Match')[0].strip()
+                elif 'Ingredient Match' in detail.text:
+                    dupe_info['ingredient_match'] = detail.text.split('Ingredient Match')[0].strip()
+        
+        # Get dupe explanation
+        dupe_explained = container.find_all('h3', class_='text-blue-gray-800')
+        dupe_explained = [h3 for h3 in dupe_explained if 'Dupe Explained' in h3.text]
+        if dupe_explained:
+            explanation_div = dupe_explained[0].find_next('div', class_='prose')
+            if explanation_div:
+                explanations = []
+                for p in explanation_div.find_all('p'):
+                    explanations.append(p.text.strip())
+                dupe_info['explanation'] = explanations
+        
+        # Get price comparison
+        price_comparison = container.find_all('h3', class_='text-blue-gray-800')
+        price_comparison = [h3 for h3 in price_comparison if 'Price Comparison' in h3.text]
+        if price_comparison:
+            price_div = price_comparison[0].find_next('div', class_='grid')
+            if price_div:
+                prices = {}
+                price_buttons = price_div.find_all('button')
+                for button in price_buttons:
+                    product_name = button.find('img').get('alt') if button.find('img') else None
+                    price_text = button.find('div', class_='font-header text-left').text.strip() if button.find('div', class_='font-header text-left') else None
+                    if product_name and price_text:
+                        prices[product_name] = price_text
+                dupe_info['price_comparison'] = prices
+        
+        similar_products['dupes'].append(dupe_info)
+    
+    return similar_products
 
-def scrape_and_upload_products(start_index: int = 0):
+def count_existing_products(s3_client, bucket_name: str) -> int:
+    """Count number of unique products already uploaded to S3"""
+    try:
+        # List all objects in the bucket
+        paginator = s3_client.get_paginator('list_objects_v2')
+        product_count = 0
+        
+        # Paginate through all objects
+        for page in paginator.paginate(Bucket=bucket_name):
+            if 'Contents' in page:
+                for obj in page['Contents']:
+                    file_path = obj['Key']
+                    path_parts = file_path.split('/')
+                    
+                    # Check if it's a json file and if the filename matches its parent folder
+                    if len(path_parts) >= 2 and path_parts[-1].endswith('.json'):
+                        folder_name = path_parts[-2]
+                        file_name = path_parts[-1].replace('.json', '')
+                        if folder_name == file_name:
+                            product_count += 1
+        
+        return product_count
+    except Exception as e:
+        print(f"Error counting products: {str(e)}")
+        return 0
+
+def scrape_and_upload_products():
     """Main function to scrape and upload product data"""
     with open('products.json', 'r') as file:
         products = json.load(file)
         s3_client = get_s3_client()
         bucket_name = "product-buddy"
+        
+        # Get count of existing products
+        start_index = 24215
+        print(f"Starting from index: {start_index}")
         
         for number, product in enumerate(products[start_index:], start=start_index):
             try:
@@ -62,7 +175,8 @@ def scrape_and_upload_products(start_index: int = 0):
                 base_url = "https://skinsort.com"
                 response = scrapper.get(base_url + url, headers=headers)
                 html_content = response.content
-                
+                similar_products_response = scrapper.get(base_url + url + "/dupes", headers=headers)
+                similar_data = get_similar_products(similar_products_response.content)
                 # Get product data using the HTML content
                 product_data = get_product_data(html_content)
                 
@@ -74,9 +188,9 @@ def scrape_and_upload_products(start_index: int = 0):
                 product_name = folder_path.split('/')[-1]
                 
                 # Upload product data with new path structure
-                upload_to_s3(s3_client, bucket_name, f"products/{folder_path}/{product_name}.json", product_data)
-                upload_to_s3(s3_client, bucket_name, f"products/{folder_path}/pricing.json", pricing_data)
-                
+                upload_to_s3(s3_client, bucket_name, f"{folder_path}/{product_name}.json", product_data)
+                upload_to_s3(s3_client, bucket_name, f"{folder_path}/pricing.json", pricing_data)
+                upload_to_s3(s3_client, bucket_name, f"{folder_path}/similar_products.json", similar_data)
                 # Get and upload image if available
                 try:
                     soup = BeautifulSoup(html_content, 'html.parser')
@@ -85,7 +199,7 @@ def scrape_and_upload_products(start_index: int = 0):
                     if image_tag and image_tag.get('src'):
                         image_response = requests.get(image_tag['src'])
                         image_data = BytesIO(image_response.content)
-                        s3_client.upload_fileobj(image_data, bucket_name, f"products/{folder_path}/{product_name}.jpg")
+                        s3_client.upload_fileobj(image_data, bucket_name, f"{folder_path}/{product_name}.jpg")
                 except Exception as e:
                     print(f"Error uploading image: {str(e)}")
                 
@@ -152,7 +266,6 @@ def get_product_data(html_content: bytes) -> dict:
         
         for header in subsection_headers:
             header_text = ''.join(header.text.split()).lower()
-            print(f"Found section: {header_text}")  # Debug print
             
             # Get the parent div of the header
             subsection = header.parent

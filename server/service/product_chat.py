@@ -78,6 +78,7 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
             product_name = initial_context['product']["metadata"]["product"]
             brand_name = initial_context['product']["metadata"]["brand"]
             image_url = initial_context['product']['metadata']['image_url']
+            source_url = initial_context['product']['metadata']['source_url']
             
             # Create chat session data
             chat_data = {

@@ -70,61 +70,153 @@ def create_product_embeddings():
                 response = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=FOLDER_NAME)
             
             for item in response.get("Contents", []):
-                total_documents += 1
+                key = item["Key"]
+                # Only process main product JSON files
+                if not (key.endswith('.json') and key.split('/')[-2] == key.split('/')[-1].replace('.json', '')):
+                    continue
                 
-                # Skip if document count is less than or equal to 1500
+                total_documents += 1
                 if total_documents <= 0:
                     continue
                 
-                key = item["Key"]
-                if key.endswith(".json"):
-                    processed_documents += 1
-                    if processed_documents <= 0:
-                        continue
+                processed_documents += 1
+                if processed_documents <= 0:
+                    continue
+                
+                try:
+                    # Get base path for related files
+                    base_path = '/'.join(key.split('/')[:-1])
+                    product_name = normalize_product_name(key.split('/')[-2])
+                    brand_name = normalize_product_name(key.split('/')[1])
+                    product_id = generate_product_id(product_name, brand_name)
+                    image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{base_path}/{product_name}.jpg"
                     
-                    print(f"Processing document {processed_documents}: {key}")
-                    # Rest of the processing logic...
-                    json_object = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
-                    document_data = json.loads(json_object["Body"].read().decode("utf-8"))
+                    # Load all related JSON files
+                    main_product = json.loads(s3_client.get_object(Bucket=BUCKET_NAME, Key=key)["Body"].read().decode("utf-8"))
                     
-                    product_name = normalize_product_name(key.split('/')[2].replace('.json', '').replace('-', ' '))
-                    brand_name = normalize_product_name(key.split('/')[1].replace('-', ' '))
+                    pricing_data = {}
+                    try:
+                        pricing_key = f"{base_path}/pricing.json"
+                        pricing_data = json.loads(s3_client.get_object(Bucket=BUCKET_NAME, Key=pricing_key)["Body"].read().decode("utf-8"))
+                    except Exception as e:
+                        print(f"Error loading pricing data: {e}")
                     
-                    ingredients_data = document_data.get('ingredients_overview', [])
+                    similar_products = {}
+                    try:
+                        similar_key = f"{base_path}/similar_products.json"
+                        similar_products = json.loads(s3_client.get_object(Bucket=BUCKET_NAME, Key=similar_key)["Body"].read().decode("utf-8"))
+                    except Exception as e:
+                        print(f"Error loading similar products: {e}")
                     
-                    # Create product embeddings
-                    max_ingredients_per_chunk = 1000
-                    ingredients = [normalize_ingredient_name(ing['ingredient_name']) for ing in ingredients_data]
+                    # Create different types of chunks
                     
-                    for i in range(0, len(ingredients), max_ingredients_per_chunk):
-                        chunk = ingredients[i:i + max_ingredients_per_chunk]
-                        chunk_text = ', '.join(chunk)
-                        page_content = (
-                            f"Product: {product_name}. Brand: {brand_name}. Ingredients : {chunk_text}."
-                        )
-                        image_key = key.replace('.json', '.jpg')
-                        image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{image_key}"
-                        doc = Document(
-                            page_content=page_content,
+                    # 1. Main Product Information
+                    main_content = (
+                        f"Product: {product_name}. Brand: {brand_name}. "
+                        f"Notable Ingredients: {', '.join(main_product.get('notable_ingredients', []))}. "
+                        f"Benefits: {', '.join(b['benefit_name'] for b in main_product.get('benefits', []))}. "
+                        f"Concerns: {', '.join(c['concern_name'] for c in main_product.get('concerns', []))}."
+                    )
+                    
+                    main_doc = Document(
+                        page_content=main_content,
+                        metadata={
+                            "product": product_name,
+                            "brand": brand_name,
+                            "type": "product_overview",
+                            "source": key,
+                            "product_id": product_id,
+                            "image_url": image_url
+                        }
+                    )
+                    pinecone_vector_store.add_documents([main_doc])
+                    
+                    # 2. Ingredients Information (in chunks)
+                    max_ingredients_per_chunk = 10
+                    ingredients_data = main_product.get('ingredients_overview', [])
+                    
+                    for i in range(0, len(ingredients_data), max_ingredients_per_chunk):
+                        chunk = ingredients_data[i:i + max_ingredients_per_chunk]
+                        ingredients_content = ""
+                        for ing in chunk:
+                            ingredients_content += f"Ingredient: {ing['ingredient_name']}. Uses: {ing['ingredient_uses']}. "
+                            if ing.get('ingredient_information'):
+                                ingredients_content += f"Details: {ing['ingredient_information']}. "
+                        
+                        ing_doc = Document(
+                            page_content=ingredients_content,
                             metadata={
                                 "product": product_name,
                                 "brand": brand_name,
-                                "type": "product",
+                                "type": "ingredients",
                                 "source": key,
-                                "product_id": generate_product_id(product_name, brand_name),
+                                "product_id": product_id,
                                 "image_url": image_url
                             }
                         )
-                        print(f"Processing product: {product_name}")
-                        pinecone_vector_store.add_documents([doc])
-                
-            continuation_token = response.get("NextContinuationToken")       
+                        pinecone_vector_store.add_documents([ing_doc])
+                    
+                    # 3. Pricing Information
+                    if pricing_data.get('retailers'):
+                        pricing_content = f"Product: {product_name} by {brand_name}. Pricing: "
+                        for retailer in pricing_data['retailers']:
+                            if retailer.get('price'):
+                                pricing_content += f"{retailer['retailer']}: ${retailer['price']}, "
+                        
+                        price_doc = Document(
+                            page_content=pricing_content.rstrip(', '),
+                            metadata={
+                                "product": product_name,
+                                "brand": brand_name,
+                                "type": "pricing",
+                                "source": key,
+                                "product_id": product_id,
+                                "image_url": image_url
+                            }
+                        )
+                        pinecone_vector_store.add_documents([price_doc])
+                    
+                    # 4. Similar Products Information
+                    if similar_products.get('dupes'):
+                        for dupe in similar_products['dupes']:
+                            dupe_content = (
+                                f"Product: {product_name} by {brand_name} has a dupe: {dupe.get('product_name', '')} "
+                                f"by {dupe.get('brand', '')}. Match: {dupe.get('match_percentage', '')}. "
+                                f"Attribute Match: {dupe.get('attribute_match', '')}. "
+                                f"Ingredient Match: {dupe.get('ingredient_match', '')}. "
+                            )
+                            if dupe.get('explanation'):
+                                dupe_content += f"Explanation: {' '.join(dupe['explanation'])}."
+                            
+                            dupe_doc = Document(
+                                page_content=dupe_content,
+                                metadata={
+                                    "product": product_name,
+                                    "brand": brand_name,
+                                    "type": "dupe",
+                                    "source": key,
+                                    "product_id": product_id,
+                                    "image_url": image_url,
+                                    "dupe_product": dupe.get('product_name', ''),
+                                    "dupe_brand": dupe.get('brand', '')
+                                }
+                            )
+                            pinecone_vector_store.add_documents([dupe_doc])
+                    
+                    print(f"Processed product {processed_documents}: {product_name}")
+                    
+                except Exception as e:
+                    print(f"Error processing individual product {key}: {e}")
+                    continue
+            
+            continuation_token = response.get("NextContinuationToken")
             if not continuation_token:
                 break
-        print(f"Total products processed and uploaded: {processed_documents}")    
             
+        print(f"Total products processed and uploaded: {processed_documents}")
+        
     except Exception as e:
-        print(f"Error processing products: {e} with {processed_documents} documents")
+        print(f"Error in main processing loop: {e} with {processed_documents} documents")
 
 create_product_embeddings()
 #create_ingredient_embeddings()

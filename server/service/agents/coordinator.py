@@ -1,19 +1,16 @@
 from typing import Dict, AsyncGenerator, List
 from .base_agent import BaseAgent
 from .product_agent import ProductAgent
+from .research_agent import ResearchAgent
 
 class AgentCoordinator:
     """
     Coordinates multiple agents to handle user questions.
-    Determines which agents should handle each question and combines their responses.
     """
     
     def __init__(self):
-        """
-        Initialize coordinator with ProductAgent as the default
-        """
-        self.default_agent = ProductAgent()
-        self.agents = []  # Additional agents can be added later
+        self.research_agent = ResearchAgent()
+        self.product_agent = ProductAgent()
         
     async def process_question(
         self,
@@ -23,18 +20,12 @@ class AgentCoordinator:
     ) -> AsyncGenerator[str, None]:
         """
         Process a question using appropriate agents
-        
-        Args:
-            question: The user's question
-            context: Current conversation context
-            chat_history: Conversation history
-            
-        Returns:
-            Generator[str, None, None]: Stream of response chunks
         """
-        # For now, just use the default product agent
-        async for chunk in self.default_agent.process(question, context, chat_history):
-            yield chunk
-            
-        # Extract and store any new insights
-        # TODO: Implement insight gathering from all agents 
+        # First check if research agent should handle it
+        if self.research_agent.can_handle(question, context):
+            async for chunk in self.research_agent.process(question, context, chat_history):
+                yield chunk
+        else:
+            # Default to product agent for basic questions
+            async for chunk in self.product_agent.process(question, context, chat_history):
+                yield chunk 
