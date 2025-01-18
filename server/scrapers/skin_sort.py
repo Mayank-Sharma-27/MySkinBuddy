@@ -147,15 +147,95 @@ def count_existing_products(s3_client, bucket_name: str) -> int:
         print(f"Error counting products: {str(e)}")
         return 0
 
+def check_missing_data():
+    """Check for products with missing brand/product and rescrape them"""
+    s3_client = get_s3_client()
+    bucket_name = "product-buddy"
+    scraper = cloudscraper.create_scraper()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "identity",
+        "Connection": "keep-alive",
+    }
+
+    found_missing_data = False
+
+    # List all objects in the bucket/product path
+    paginator = s3_client.get_paginator('list_objects_v2')
+    
+    for page in paginator.paginate(Bucket=bucket_name, Prefix='product/'):
+        if 'Contents' not in page:
+            continue
+
+        for obj in page['Contents']:
+            file_path = obj['Key']
+            
+            # Only process main product .json files (not pricing or similar_products)
+            path_parts = file_path.split('/')
+            if len(path_parts) < 3 or not file_path.endswith('.json') or 'pricing' in file_path or 'similar_products' in file_path:
+                continue
+                
+            # Check if the filename matches its parent folder (main product file)
+            folder_name = path_parts[-2]
+            file_name = path_parts[-1].replace('.json', '')
+            if folder_name != file_name:
+                continue
+
+            # Get the current product data
+            try:
+                response = s3_client.get_object(Bucket=bucket_name, Key=file_path)
+                product_data = json.loads(response['Body'].read().decode('utf-8'))
+                
+                # Only proceed if brand or product is empty
+                if not product_data.get('brand') or not product_data.get('product'):
+                    found_missing_data = True
+                    print(f"Found missing data in: {file_path}")
+                    
+                    # Extract the product URL from the file path
+                    url_path = '/'.join(file_path.split('/')[:-1])  # Remove the filename
+                    product_url = f"https://skinsort.com/{url_path}"
+                    
+                    # Rescrape the product data
+                    try:
+                        response = scraper.get(product_url, headers=headers)
+                        new_product_data = get_product_data(response.content)
+                        
+                        # Only update if we got new data
+                        if new_product_data.get('brand') or new_product_data.get('product'):
+                            # Merge the new data with existing data
+                            product_data['brand'] = new_product_data['brand']
+                            product_data['product'] = new_product_data['product']
+                            
+                            # Upload updated data back to S3
+                            data_bytes = json.dumps(product_data).encode('utf-8')
+                            file_obj = BytesIO(data_bytes)
+                            s3_client.upload_fileobj(file_obj, bucket_name, file_path)
+                            
+                            print(f"Updated data for: {file_path}")
+                            print(f"New brand: {new_product_data['brand']}")
+                            print(f"New product: {new_product_data['product']}")
+                        else:
+                            print(f"No new data found for: {file_path}")
+                            
+                    except Exception as e:
+                        print(f"Error rescraping {product_url}: {str(e)}")
+                        
+            except Exception as e:
+                print(f"Error processing {file_path}: {str(e)}")
+
+    return found_missing_data
+
 def scrape_and_upload_products():
     """Main function to scrape and upload product data"""
+    print("Starting product scraping...")
     with open('products.json', 'r') as file:
         products = json.load(file)
         s3_client = get_s3_client()
         bucket_name = "product-buddy"
         
         # Get count of existing products
-        start_index = 24215
+        start_index = 0
         print(f"Starting from index: {start_index}")
         
         for number, product in enumerate(products[start_index:], start=start_index):
@@ -163,6 +243,19 @@ def scrape_and_upload_products():
                 url = product['product']['product_details']['product_url']
                 product_url = url.strip('/')
                 folder_path = product_url.lstrip('/')
+                
+                # Check if product file exists and has missing data
+                try:
+                    product_file_path = f"{folder_path}/{folder_path.split('/')[-1]}.json"
+                    response = s3_client.get_object(Bucket=bucket_name, Key=product_file_path)
+                    existing_data = json.loads(response['Body'].read().decode('utf-8'))
+                    
+                    # Skip if both brand and product exist and are not empty strings
+                    if existing_data.get('brand', '').strip() and existing_data.get('product', '').strip():
+                        print(f"Skipping product {number}, data already exists: {url}")
+                        continue
+                except:
+                    pass  # Product doesn't exist yet or other error, continue with scraping
                 
                 # Make a single request to get the HTML content
                 scrapper = cloudscraper.create_scraper()
@@ -191,6 +284,7 @@ def scrape_and_upload_products():
                 upload_to_s3(s3_client, bucket_name, f"{folder_path}/{product_name}.json", product_data)
                 upload_to_s3(s3_client, bucket_name, f"{folder_path}/pricing.json", pricing_data)
                 upload_to_s3(s3_client, bucket_name, f"{folder_path}/similar_products.json", similar_data)
+                
                 # Get and upload image if available
                 try:
                     soup = BeautifulSoup(html_content, 'html.parser')
@@ -315,13 +409,15 @@ def get_product_data(html_content: bytes) -> dict:
                         result['concerns'].append(concern_data)
 
     # Extract brand and product name
-    product_header = soup.find('h1', class_='px-4 lg:px-0 break-words text-left leading-none tracking-tight text-warm-gray-800 text-2xl lg:text-5xl font-bold flex flex-col justify-center lg:justify-start')
+    product_header = soup.find('h1', class_='px-4')
     if product_header:
         # Extract the brand name
         brand_element = product_header.find('span', class_='pb-1 text-lg xl:text-3xl font-medium text-warm-gray-900/60')
         if brand_element:
             brand_link = brand_element.find('a')
             result["brand"] = brand_link.text.strip() if brand_link else ""
+        else:
+            print("Brand element not found in product header")
 
         # Extract the product name by getting the text node between spans
         # Filter out span elements and get only direct text nodes
@@ -329,8 +425,12 @@ def get_product_data(html_content: bytes) -> dict:
                      if isinstance(node, str) and node.strip()]
         
         # The product name should be the first non-empty text node
-        result["product"] = text_nodes[0].strip() if text_nodes else ""
-                    
+        if text_nodes:
+            result["product"] = text_nodes[0].strip()
+        else:
+            print("Product name not found in product header")
+    else:
+        print("Product header not found")
 
     return result
 

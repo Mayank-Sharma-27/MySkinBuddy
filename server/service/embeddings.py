@@ -86,13 +86,21 @@ def create_product_embeddings():
                 try:
                     # Get base path for related files
                     base_path = '/'.join(key.split('/')[:-1])
-                    product_name = normalize_product_name(key.split('/')[-2])
-                    brand_name = normalize_product_name(key.split('/')[1])
+                    
+                    # Load main product data
+                    main_product = json.loads(s3_client.get_object(Bucket=BUCKET_NAME, Key=key)["Body"].read().decode("utf-8"))
+                    
+                    # Get product and brand names with fallback
+                    if 'product' in main_product and 'brand' in main_product and main_product['product'].strip() and main_product['brand'].strip():
+                        product_name = main_product['product']
+                        brand_name = main_product['brand']
+                    else:
+                        print(f"Warning: Using folder names for product/brand in {key}")
+                        product_name = normalize_product_name(key.split('/')[-2])
+                        brand_name = normalize_product_name(key.split('/')[1])
+                    
                     product_id = generate_product_id(product_name, brand_name)
                     image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{base_path}/{product_name}.jpg"
-                    
-                    # Load all related JSON files
-                    main_product = json.loads(s3_client.get_object(Bucket=BUCKET_NAME, Key=key)["Body"].read().decode("utf-8"))
                     
                     pricing_data = {}
                     try:

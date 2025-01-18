@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Generator, List, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
+from ..embeddings import pinecone_vector_store, embeddings
 
 class BaseAgent(ABC):
     """
@@ -18,6 +19,8 @@ class BaseAgent(ABC):
             max_retries=3,
             streaming=True
         )
+        self.embeddings = embeddings
+        self.vector_store = pinecone_vector_store
         
     @abstractmethod
     def can_handle(self, question: str, context: Dict) -> bool:
