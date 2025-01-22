@@ -185,7 +185,7 @@ def create_product_embeddings():
                         pinecone_vector_store.add_documents([price_doc])
                     
                     # 4. Similar Products Information
-                    if similar_products.get('dupes'):
+                    if similar_products.get('dupes') and len(similar_products['dupes']) > 0:
                         for dupe in similar_products['dupes']:
                             dupe_content = (
                                 f"Product: {product_name} by {brand_name} has a dupe: {dupe.get('product_name', '')} "

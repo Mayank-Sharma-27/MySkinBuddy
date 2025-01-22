@@ -29,6 +29,7 @@ ENV/
 .env
 .env.local
 .env.*.local
+.env.production
 
 # IDE specific files
 .idea/
@@ -40,4 +41,12 @@ ENV/
 # Project specific
 *.log
 *.json
-node_modules/ 
+node_modules/
+
+# Scrapers
+server/scrapers/
+scrapers/
+*.py[cod]
+products.json
+
+# ... rest of the file ... 

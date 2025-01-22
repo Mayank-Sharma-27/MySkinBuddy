@@ -235,7 +235,7 @@ def scrape_and_upload_products():
         bucket_name = "product-buddy"
         
         # Get count of existing products
-        start_index = 0
+        start_index = 3737
         print(f"Starting from index: {start_index}")
         
         for number, product in enumerate(products[start_index:], start=start_index):
@@ -251,9 +251,6 @@ def scrape_and_upload_products():
                     existing_data = json.loads(response['Body'].read().decode('utf-8'))
                     
                     # Skip if both brand and product exist and are not empty strings
-                    if existing_data.get('brand', '').strip() and existing_data.get('product', '').strip():
-                        print(f"Skipping product {number}, data already exists: {url}")
-                        continue
                 except:
                     pass  # Product doesn't exist yet or other error, continue with scraping
                 
@@ -269,9 +266,9 @@ def scrape_and_upload_products():
                 response = scrapper.get(base_url + url, headers=headers)
                 html_content = response.content
                 similar_products_response = scrapper.get(base_url + url + "/dupes", headers=headers)
-                similar_data = get_similar_products(similar_products_response.content)
+                #similar_data = get_similar_products(similar_products_response.content)
                 # Get product data using the HTML content
-                product_data = get_product_data(html_content)
+                #product_data = get_product_data(html_content)
                 
                 # Get pricing data using the same scraper and HTML content
                 pricing_response = scrapper.get(base_url + url + "/vendors", headers=headers)
@@ -281,9 +278,9 @@ def scrape_and_upload_products():
                 product_name = folder_path.split('/')[-1]
                 
                 # Upload product data with new path structure
-                upload_to_s3(s3_client, bucket_name, f"{folder_path}/{product_name}.json", product_data)
+               # upload_to_s3(s3_client, bucket_name, f"{folder_path}/{product_name}.json", product_data)
                 upload_to_s3(s3_client, bucket_name, f"{folder_path}/pricing.json", pricing_data)
-                upload_to_s3(s3_client, bucket_name, f"{folder_path}/similar_products.json", similar_data)
+               # upload_to_s3(s3_client, bucket_name, f"{folder_path}/similar_products.json", similar_data)
                 
                 # Get and upload image if available
                 try:
@@ -460,7 +457,7 @@ def get_product_pricing(html_content: bytes) -> dict:
             retailer_info["logo_url"] = img.get('src', '')
         
         # Get price if available
-        price_span = link.find('span', class_='text-sm font-medium mr-2')
+        price_span = link.find('span', class_='text-sm')
         if price_span:
             price_text = price_span.text.strip()
             try:
