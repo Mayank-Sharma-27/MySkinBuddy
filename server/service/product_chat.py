@@ -19,11 +19,12 @@ from service.s3_client import get_s3_client
 from langchain_google_genai import ChatGoogleGenerativeAI
 from duckduckgo_search import DDGS
 from service.chat_service import get_chat, save_chat, initialize_agents_data;
-from typing import Generator
+from typing import Generator, AsyncGenerator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.generate_chat_response import generate_response 
 from service.context_builder import get_initial_context
 from service.agents.coordinator import AgentCoordinator
+import asyncio
 
 duckduckgo = DDGS(timeout=20)
 
@@ -78,7 +79,6 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
             product_name = initial_context['product']["metadata"]["product"]
             brand_name = initial_context['product']["metadata"]["brand"]
             image_url = initial_context['product']['metadata']['image_url']
-            source_url = initial_context['product']['metadata']['source_url']
             
             # Create chat session data
             chat_data = {
@@ -106,17 +106,19 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
         print(f"Error initializing chat: {str(e)}")
         raise
 
-async def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> Generator[str, None, None]:
+def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> Generator[str, None, None]:
     """Handle a chat message and return the response"""
     try:
-        # Get chat data
+        print("Handling chat message")
         chat_data = get_chat(cookie_id, product_id)
         if not chat_data:
             raise Exception("Chat not found")
             
         # Generate response using coordinator
         accumulated_response = ""
-        async for chunk in coordinator.process_question(
+        
+        # Process the question and get response chunks
+        for chunk in coordinator.process_question(
             question=user_question,
             context=chat_data,
             chat_history=chat_data["chat_history"]

@@ -1,41 +1,47 @@
-from typing import Dict, AsyncGenerator, List
+from typing import Dict, Generator, List
 from .base_agent import BaseAgent
+from ..embeddings import pinecone_vector_store
+import re
 
 class SimilarProductsAgent(BaseAgent):
     """Agent responsible for finding and comparing similar products"""
     
-    SIMILARITY_INTENTS = [
-        "What are similar products?",
-        "Show me dupes for this",
-        "What can I use instead?",
-        "Are there alternatives?",
-        "Compare this with similar products",
-        "What's a good substitute?",
+    SIMILARITY_PATTERNS = [
+        r"similar",
+        r"dupe",
+        r"alternative",
+        r"like this",
+        r"substitute",
+        r"instead",
+        r"compare",
+        r"other products",
+        r"comparable"
     ]
     
     def can_handle(self, question: str, context: Dict) -> bool:
-        question_embedding = self.embeddings.embed_query(question)
-        intent_embeddings = self.embeddings.embed_documents(self.SIMILARITY_INTENTS)
+        print(f"Similar Products Agent checking: {question}")
+        question_lower = question.lower()
         
-        max_similarity = 0
-        for intent_embedding in intent_embeddings:
-            similarity = sum(q * i for q, i in zip(question_embedding, intent_embedding))
-            max_similarity = max(max_similarity, similarity)
-            
-        return max_similarity > 0.75
+        # Check if any similarity pattern matches
+        for pattern in self.SIMILARITY_PATTERNS:
+            if re.search(pattern, question_lower):
+                print(f"Similar Products Agent matched pattern: {pattern}")
+                return True
+                
+        return False
     
     def get_required_context(self) -> List[str]:
         return ["product_id"]
     
-    async def process(
+    def process(
         self,
         question: str,
         context: Dict,
         chat_history: List[Dict]
-    ) -> AsyncGenerator[str, None]:
+    ) -> Generator[str, None, None]:
         product_id = context.get("product_id")
         
-        similar_results = pinecone_vector_store.similarity_search(
+        similar_results = self.vector_store.similarity_search(
             question,
             filter={"product_id": product_id, "type": "dupe"},
             k=3

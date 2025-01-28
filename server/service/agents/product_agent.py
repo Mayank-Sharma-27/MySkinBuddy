@@ -1,4 +1,4 @@
-from typing import Dict, AsyncGenerator, List
+from typing import Dict, Generator, List
 from .base_agent import BaseAgent
 from langchain.prompts import ChatPromptTemplate
 
@@ -44,12 +44,12 @@ class ProductAgent(BaseAgent):
             ("human", human)
         ])
         
-    async def process(
+    def process(
         self,
         question: str,
         context: Dict,
         chat_history: List[Dict]
-    ) -> AsyncGenerator[str, None]:
+    ) -> Generator[str, None, None]:
         # Get product context
         product_doc = context.get("preloaded_context", {}).get("product", {})
         product_info = product_doc.get("page_content", "")

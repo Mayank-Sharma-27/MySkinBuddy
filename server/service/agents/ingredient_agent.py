@@ -1,4 +1,4 @@
-from typing import Dict, AsyncGenerator, List
+from typing import Dict, Generator, List
 from .base_agent import BaseAgent
 
 class IngredientAgent(BaseAgent):
@@ -28,15 +28,15 @@ class IngredientAgent(BaseAgent):
     def get_required_context(self) -> List[str]:
         return ["product_id"]
     
-    async def process(
+    def process(
         self,
         question: str,
         context: Dict,
         chat_history: List[Dict]
-    ) -> AsyncGenerator[str, None]:
+    ) -> Generator[str, None, None]:
         product_id = context.get("product_id")
         
-        ingredient_results = pinecone_vector_store.similarity_search(
+        ingredient_results = self.vector_store.similarity_search(
             question,
             filter={"product_id": product_id, "type": "ingredients"},
             k=2

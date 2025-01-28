@@ -5,8 +5,6 @@ import json
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from service.agents.product_information_agent import ProductInformationAgent
-from service.agents.ingredients_analyzer_agent import IngredientAnalyzerAgent
-from service.agents.products_recommendation_agent import ProductRecommendationsAgent
 
 # Initialize S3 client once
 s3_client = boto3.client(
@@ -95,19 +93,6 @@ def initialize_agents_data(product_data: dict):
         except Exception as e:
             print(f"Error in product info agent: {str(e)}")
 
-    def run_ingredients_analysis():
-        try:
-            agent = IngredientAnalyzerAgent()
-            agent.analyze_ingredients(product_data)
-        except Exception as e:
-            print(f"Error in ingredients agent: {str(e)}")
-
-    def run_recommendations():
-        try:
-            agent = ProductRecommendationsAgent()
-            #agent.recommend_products(product_id, {})
-        except Exception as e:
-            print(f"Error in recommendations agent: {str(e)}")
     run_product_info()
 
 def get_total_message_count(cookie_id: str) -> int:

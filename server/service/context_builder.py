@@ -72,7 +72,7 @@ def get_initial_context(product_id: str):
         # Get product document from Pinecone
         product_filter = {
             "product_id": product_id,
-            "type": "product"
+            "type": "product_overview"
         }
         
         product_docs = pinecone_vector_store.similarity_search(

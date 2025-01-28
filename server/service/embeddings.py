@@ -8,12 +8,13 @@ import boto3
 from langchain_together.embeddings import TogetherEmbeddings
 import json
 from langchain_core.documents import Document
-from s3_client import get_s3_client 
+from .s3_client import get_s3_client 
 import re
 load_dotenv()
 from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import hashlib
+import time
 
 api_key = os.getenv("TOGETHER_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -29,9 +30,12 @@ BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", metric="cosine")
 s3_client = get_s3_client()  
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
+
+# Export both for use in other modules
+__all__ = ['embeddings', 'pinecone_vector_store']
 
 def split_json_into_chunks(document_data, metadata):
     chunks = []
@@ -53,7 +57,7 @@ def normalize_product_name(name):
     return re.sub(r'[^a-z0-9\s]', '', name) 
   
 def generate_product_id(product_name, brand_name):
-    return hashlib.md5(f"{product_name}-{brand_name}".encode()).hexdigest()    
+    return int(time.time() * 1000)   
 
 def create_product_embeddings():
     documents = []
@@ -100,7 +104,7 @@ def create_product_embeddings():
                         brand_name = normalize_product_name(key.split('/')[1])
                     
                     product_id = generate_product_id(product_name, brand_name)
-                    image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{base_path}/{product_name}.jpg"
+                    image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{base_path}/{base_path.split('/')[2]}.jpg"
                     
                     pricing_data = {}
                     try:
@@ -159,7 +163,6 @@ def create_product_embeddings():
                                 "type": "ingredients",
                                 "source": key,
                                 "product_id": product_id,
-                                "image_url": image_url
                             }
                         )
                         pinecone_vector_store.add_documents([ing_doc])
@@ -179,7 +182,6 @@ def create_product_embeddings():
                                 "type": "pricing",
                                 "source": key,
                                 "product_id": product_id,
-                                "image_url": image_url
                             }
                         )
                         pinecone_vector_store.add_documents([price_doc])
@@ -226,6 +228,6 @@ def create_product_embeddings():
     except Exception as e:
         print(f"Error in main processing loop: {e} with {processed_documents} documents")
 
-create_product_embeddings()
+#create_product_embeddings()
 #create_ingredient_embeddings()
                         

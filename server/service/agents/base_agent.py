@@ -47,7 +47,7 @@ class BaseAgent(ABC):
         pass
         
     @abstractmethod
-    async def process(
+    def process(
         self,
         question: str,
         context: Dict,
