@@ -4,27 +4,67 @@ interface ChatMessageProps {
   message: string;
   isUser: boolean;
   timestamp: string;
+  isLoading?: boolean;
 }
 
-export function ChatMessage({ message, isUser, timestamp }: ChatMessageProps) {
+function LoadingDots() {
+  return (
+    <div className="flex space-x-1.5 items-center h-6">
+      <div className="w-2 h-2 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.3s]"></div>
+      <div className="w-2 h-2 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.15s]"></div>
+      <div className="w-2 h-2 rounded-full bg-primary-500 animate-bounce"></div>
+    </div>
+  );
+}
+
+export function ChatMessage({
+  message,
+  isUser,
+  timestamp,
+  isLoading = false,
+}: ChatMessageProps) {
   const formatMessage = (text: string) => {
-    // Split the text by ** markers
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    // First split by markdown links [text](url)
+    const parts = text.split(/(\[.*?\]\(.*?\))/g);
+
     return parts.map((part, index) => {
-      // Check if this part is wrapped in **
-      if (part.startsWith("**") && part.endsWith("**")) {
-        // Remove the ** and apply highlighting
-        const ingredient = part.slice(2, -2);
+      // Check if this part is a markdown link
+      const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (linkMatch) {
+        const [_, text, url] = linkMatch;
         return (
-          <span
+          <a
             key={index}
-            className="font-medium bg-primary-100/20 text-primary-700 px-1 rounded"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline ${
+              isUser
+                ? "text-white/90 hover:text-white"
+                : "text-primary-600 hover:text-primary-700"
+            }`}
           >
-            {ingredient}
-          </span>
+            {text}
+          </a>
         );
       }
-      return part;
+
+      // Handle bold text within non-link parts
+      const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+      return boldParts.map((boldPart, boldIndex) => {
+        if (boldPart.startsWith("**") && boldPart.endsWith("**")) {
+          const ingredient = boldPart.slice(2, -2);
+          return (
+            <span
+              key={`${index}-${boldIndex}`}
+              className="font-medium bg-primary-100/20 text-primary-700 px-1 rounded"
+            >
+              {ingredient}
+            </span>
+          );
+        }
+        return boldPart;
+      });
     });
   };
 
@@ -37,9 +77,15 @@ export function ChatMessage({ message, isUser, timestamp }: ChatMessageProps) {
             : "bg-white border border-gray-200 text-gray-800"
         }`}
       >
-        <p className="whitespace-pre-wrap break-words">
-          {formatMessage(message)}
-        </p>
+        {isLoading ? (
+          <div className="min-h-[24px] flex items-center">
+            <LoadingDots />
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap break-words">
+            {formatMessage(message)}
+          </p>
+        )}
         <div
           className={`text-xs mt-1 ${
             isUser ? "text-white/70" : "text-gray-500"

@@ -15,6 +15,7 @@ interface Message {
   content: string;
   isUser: boolean;
   timestamp: string;
+  isLoading?: boolean;
 }
 
 interface ChatData {
@@ -113,7 +114,16 @@ export function ChatWindow({
       timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    // Add loading message
+    const loadingMessage = {
+      id: "loading-" + Date.now().toString(),
+      content: "",
+      isUser: false,
+      timestamp: new Date().toISOString(),
+      isLoading: true,
+    };
+
+    setMessages((prev) => [...prev, newMessage, loadingMessage]);
     setInputMessage("");
     setIsLoading(true);
 
@@ -142,6 +152,9 @@ export function ChatWindow({
       const reader = response.body?.getReader();
       let partialResponse = "";
 
+      // Remove loading message when we start getting real response
+      setMessages((prev) => prev.filter((msg) => !msg.isLoading));
+
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
@@ -158,7 +171,7 @@ export function ChatWindow({
                 if (data.content) {
                   setMessages((prev) => {
                     const lastMessage = prev[prev.length - 1];
-                    if (!lastMessage.isUser) {
+                    if (!lastMessage.isUser && !lastMessage.isLoading) {
                       // Update existing assistant message
                       return [
                         ...prev.slice(0, -1),
@@ -190,8 +203,9 @@ export function ChatWindow({
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      // Remove loading message and show error
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((msg) => !msg.isLoading),
         {
           id: Date.now().toString(),
           content:
