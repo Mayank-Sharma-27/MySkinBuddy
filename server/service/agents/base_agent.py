@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Generator, List, Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatPerplexity
 from langchain.prompts import ChatPromptTemplate
 from ..embeddings import pinecone_vector_store, embeddings
+from ..utils.response_formatter import format_agent_response
 
 class BaseAgent(ABC):
     """
@@ -11,13 +12,9 @@ class BaseAgent(ABC):
     """
     
     def __init__(self):
-        self.model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            temperature=0.3,
-            max_tokens=None,
-            timeout=30,
-            max_retries=3,
-            streaming=True
+        self.model = ChatPerplexity(
+            model="sonar-reasoning",
+            temperature=0.3
         )
         self.embeddings = embeddings
         self.vector_store = pinecone_vector_store
@@ -93,3 +90,8 @@ class BaseAgent(ABC):
             Optional[Dict]: New insights to add to context, if any
         """
         return None 
+
+    def format_response(self, response) -> str:
+        """Format the model's response using the common formatter"""
+        formatted = format_agent_response(response)
+        return formatted["content"] 

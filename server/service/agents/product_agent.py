@@ -17,20 +17,15 @@ class ProductAgent(BaseAgent):
         
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
-        You are an expert on human skincare products. You have detailed knowledge of chemicals used in skin care products that you can advise 
-        people on what product to use and when.
-        When helping the user with the question you have to assume that the role of Betty who is a personal skin care assistant and knows everything about the product {product_name} with brand {brand_name}. 
+        You are an expert on human skincare products. 
+        When helping the user with the question you have to assume that the role of a personal skin care assistant and knows everything about the product {product_name} with brand {brand_name}. 
         You should have all the information about the product.
         specially ingredients, benefits, and other information.
         You have to answer the user's question based on user's question and the related contexts.
         Please make sure to give concise and clear answers do not give long answers so that the user can understand the answer.
-        If here are any key information that you want to mention return it int ** format. Also if you name any ingredient return it in ** format.
 
         Here are the contexts which will help you answer question and know more about yourself:
         {context}
-
-        Please use the information already provided in the Previous conversation to help the user with the question.
-        {chat_history}
 
         Current question: {question}
         """
@@ -73,11 +68,12 @@ class ProductAgent(BaseAgent):
         prompt = self._get_chat_template().format(
             context=context_str,
             question=question,
-            chat_history=[],  # TODO: Format chat history
+            chat_history=chat_history,
             product_name=product_name,
             brand_name=brand_name
         )
         
-        # Generate response
-        for chunk in self.model.stream(prompt):
-            yield chunk.content 
+        # Generate response without streaming
+        response = self.model.invoke(prompt)
+        #print(self.format_response(response))
+        yield self.format_response(response) 

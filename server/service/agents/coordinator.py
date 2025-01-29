@@ -28,15 +28,7 @@ class AgentCoordinator:
         agents_to_use = []
         print("Processing question in coordinator")
         
-        # Determine which agents should handle the question
-        if self.pricing_agent.can_handle(question, context):
-            agents_to_use.append(self.pricing_agent)
-        if self.ingredient_agent.can_handle(question, context):
-            agents_to_use.append(self.ingredient_agent)
-        if self.similar_products_agent.can_handle(question, context):
-            agents_to_use.append(self.similar_products_agent)
-        if not agents_to_use or self.product_agent.can_handle(question, context):
-            agents_to_use.append(self.product_agent)
+        agents_to_use.append(self.product_agent)
         
         # For now, just use the first capable agent
         agent = agents_to_use[0]

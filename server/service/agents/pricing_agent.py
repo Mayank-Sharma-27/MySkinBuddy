@@ -67,5 +67,5 @@ class PricingAgent(BaseAgent):
         Question: {question}
         """
         
-        for chunk in self.model.stream(prompt):
-            yield chunk.content 
+        response = self.model.invoke(prompt)
+        yield self.format_response(response) 
