@@ -10,6 +10,18 @@ import { API_URL } from "../config";
 
 const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
 
+function LoadingDots() {
+  return (
+    <div className="flex items-center h-4">
+      <div className="flex space-x-1">
+        <div className="loading-dot"></div>
+        <div className="loading-dot"></div>
+        <div className="loading-dot"></div>
+      </div>
+    </div>
+  );
+}
+
 interface Message {
   id: string;
   content: string;
@@ -41,43 +53,59 @@ export function ChatWindow({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const cookieId = useCookie();
   const { isLoggedIn } = useAuth();
 
-  useEffect(() => {
-    const checkMessageLimit = async () => {
-      try {
-        const response = await fetch(`${API_URL}/check-message-limit`, {
+  const loadMoreMessages = async () => {
+    if (isLoadingMore || !hasMore || !cookieId) return;
+
+    try {
+      setIsLoadingMore(true);
+      const response = await fetch(
+        `${API_URL}/chat/${productId}/history?page=${currentPage + 1}`,
+        {
           headers: {
-            "X-Cookie-ID": cookieId || "",
+            "X-Cookie-ID": cookieId,
           },
-        });
-
-        if (response.status === 403) {
-          const data = await response.json();
-          if (data.requires_login) {
-            setShowLoginModal(true);
-          }
         }
-      } catch (error) {
-        console.error("Error checking message limit:", error);
+      );
+
+      if (!response.ok) throw new Error("Failed to load more messages");
+
+      const data = await response.json();
+      if (data.status === "success") {
+        const oldMessages = data.chat_data.chat_history.map((msg: any) => ({
+          id: msg.id || Date.now().toString(),
+          content: msg.content,
+          isUser: msg.role === "user",
+          timestamp: msg.timestamp || new Date().toISOString(),
+        }));
+
+        setMessages((prev) => [...oldMessages, ...prev]);
+        setCurrentPage((prev) => prev + 1);
+        setHasMore(data.chat_data.pagination.has_more);
       }
-    };
-
-    if (!isLoggedIn && cookieId) {
-      checkMessageLimit();
+    } catch (error) {
+      console.error("Error loading more messages:", error);
+    } finally {
+      setIsLoadingMore(false);
     }
-  }, [cookieId, isLoggedIn]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return;
+
+    const { scrollTop } = messagesContainerRef.current;
+    if (scrollTop === 0 && hasMore) {
+      loadMoreMessages();
+    }
+  };
 
   useEffect(() => {
     // Initialize messages from chat data
@@ -96,12 +124,18 @@ export function ChatWindow({
         timestamp: msg.timestamp || new Date().toISOString(),
       }));
 
-      // Only add welcome message if there's no chat history
       setMessages(
         formattedMessages.length > 0 ? formattedMessages : [welcomeMessage]
       );
+      setCurrentPage(formattedMessages.length);
     }
   }, [chatData]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +160,11 @@ export function ChatWindow({
     setMessages((prev) => [...prev, newMessage, loadingMessage]);
     setInputMessage("");
     setIsLoading(true);
+
+    // Scroll to bottom immediately when sending
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
 
     try {
       const response = await fetch(`${API_URL}/chat`, {
@@ -220,43 +259,56 @@ export function ChatWindow({
   };
 
   return (
-    <>
+    <div
+      className={`flex flex-col ${
+        fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
+      }`}
+    >
       <div
-        className={`flex flex-col ${
-          fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
-        }`}
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 bg-gray-50"
       >
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-          {messages.map((message) => (
+        {isLoadingMore && (
+          <div className="text-center py-2">
             <ChatMessage
-              key={message.id}
-              message={message.content}
-              isUser={message.isUser}
-              timestamp={message.timestamp}
+              message=""
+              isUser={false}
+              timestamp={new Date().toISOString()}
+              isLoading={true}
             />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <form
-          onSubmit={handleSendMessage}
-          className="p-4 bg-white border-t border-gray-200"
-        >
-          <div className="flex gap-4">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask about the product..."
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-colors"
-              disabled={isLoading}
-            />
-            <Button type="submit" variant="gradient" disabled={isLoading}>
-              {isLoading ? "Sending..." : "Send"}
-            </Button>
           </div>
-        </form>
+        )}
+        {messages.map((message) => (
+          <ChatMessage
+            key={message.id}
+            message={message.content}
+            isUser={message.isUser}
+            timestamp={message.timestamp}
+            isLoading={message.isLoading || false}
+          />
+        ))}
+        <div ref={messagesEndRef} />
       </div>
+
+      <form
+        onSubmit={handleSendMessage}
+        className="p-4 bg-white border-t border-gray-200"
+      >
+        <div className="flex gap-4">
+          <input
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder="Ask about the product..."
+            className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-colors"
+            disabled={isLoading}
+          />
+          <Button type="submit" variant="gradient" disabled={isLoading}>
+            {isLoading ? "Sending..." : "Send"}
+          </Button>
+        </div>
+      </form>
 
       {showLoginModal && (
         <LoginModal
@@ -264,6 +316,6 @@ export function ChatWindow({
           onClose={() => setShowLoginModal(false)}
         />
       )}
-    </>
+    </div>
   );
 }

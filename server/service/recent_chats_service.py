@@ -8,26 +8,26 @@ def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     """
     try:
         all_chats = get_all_chats_from_s3(cookie_id)
-        
-        # Keep track of seen product_ids
+        print(f"All chats: {all_chats}")
+        # Transform chats to only include required fields
+        recent_chats = []
         seen_products = set()
-        unique_chats = []
         
         for chat in all_chats:
             product_id = chat.get('product_id')
             if product_id and product_id not in seen_products:
                 seen_products.add(product_id)
-                unique_chats.append({
-                    'product': chat['product_name'],
-                    'brand': chat['brand_name'],
+                recent_chats.append({
+                    'product_name': chat['product_name'],  # UI expects 'product' instead of 'product_name'
                     'image_url': chat['image_url'],
-                    'product_id': product_id
+                    'product_id': product_id,
+                    'brand_name': chat['brand_name']  # UI expects 'brand' instead of 'brand_name'
                 })
                 
-                if len(unique_chats) >= limit:
+                if len(recent_chats) >= limit:
                     break
                     
-        return unique_chats
+        return recent_chats
     except Exception as e:
         print(f"Error fetching recent chats: {str(e)}")
         return []

@@ -112,7 +112,7 @@ export default function RecentChats() {
           <div className="relative w-24 h-24 flex-shrink-0">
             <Image
               src={chat.image_url}
-              alt={chat.product}
+              alt={chat.product_name}
               fill
               className="object-cover rounded-xl"
               sizes="(max-width: 768px) 96px, 96px"
@@ -123,10 +123,10 @@ export default function RecentChats() {
               className="text-lg font-medium text-gray-900 group-hover:text-primary-600 
                          transition-colors line-clamp-2 mb-2"
             >
-              {chat.product}
+              {chat.product_name}
             </h3>
             <p className="text-sm text-gray-500 capitalize flex items-center">
-              <span className="inline-block">By {chat.brand}</span>
+              <span className="inline-block">By {chat.brand_name}</span>
             </p>
           </div>
         </button>

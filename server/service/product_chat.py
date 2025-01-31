@@ -65,42 +65,54 @@ def initialize_chat(cookie_id: str, product_id: str) -> dict:
         try:
             # Try to get existing chat
             chat_data = get_chat(cookie_id, product_id)
-            chat_data_to_return = {
-                "product_id": product_id,
-                "product_name": chat_data["product_name"],
-                "brand_name": chat_data["brand_name"],
-                "image_url": chat_data["image_url"],
-                "chat_history": chat_data["chat_history"],
-            }
-            return chat_data_to_return
+            if chat_data.get("product_name") and chat_data.get("brand_name"):
+                # Return existing chat if it has product info
+                chat_data_to_return = {
+                    "product_id": product_id,
+                    "product_name": chat_data["product_name"],
+                    "brand_name": chat_data["brand_name"],
+                    "image_url": chat_data["image_url"],
+                    "chat_history": chat_data["chat_history"],
+                }
+                return chat_data_to_return
         except:
-            # If no existing chat, create new one
-            initial_context = get_initial_context(product_id)
-            product_name = initial_context['product']["metadata"]["product"]
-            brand_name = initial_context['product']["metadata"]["brand"]
-            image_url = initial_context['product']['metadata']['image_url']
-            
-            # Create chat session data
-            chat_data = {
-                "product_id": product_id,
-                "product_name": product_name,
-                "brand_name": brand_name,
-                "image_url": image_url,
-                "chat_history": [],
-                "preloaded_context": initial_context,
-            }
-            
-            # Save chat data
-            save_chat(cookie_id, product_id, chat_data)
-            
-            chat_data_to_return = {
-                "product_id": product_id,
-                "product_name": product_name,
-                "brand_name": brand_name,
-                "image_url": image_url,
-                "chat_history": [],
-            }
-            return chat_data_to_return
+            pass  # If chat doesn't exist or is empty, continue to create new one
+
+        # Get initial context with product info
+        initial_context = get_initial_context(product_id)
+        if not initial_context or not initial_context.get('product'):
+            raise Exception("Failed to get product information")
+
+        product_name = initial_context['product']["metadata"]["product"]
+        brand_name = initial_context['product']["metadata"]["brand"]
+        image_url = initial_context['product']['metadata']['image_url']
+        
+        # Create chat session data
+        chat_data = {
+            "product_id": product_id,
+            "product_name": product_name,
+            "brand_name": brand_name,
+            "image_url": image_url,
+            "chat_history": [],
+            "preloaded_context": initial_context,
+            "created_time": datetime.utcnow().isoformat(),
+            "last_updated_time": datetime.utcnow().isoformat()
+        }
+        
+        # Save chat data
+        save_chat(cookie_id, product_id, chat_data)
+        
+        # Initialize agents data in background
+        initialize_agents_data(initial_context['product'])
+        
+        chat_data_to_return = {
+            "product_id": product_id,
+            "product_name": product_name,
+            "brand_name": brand_name,
+            "image_url": image_url,
+            "chat_history": [],
+        }
+        return chat_data_to_return
             
     except Exception as e:
         print(f"Error initializing chat: {str(e)}")

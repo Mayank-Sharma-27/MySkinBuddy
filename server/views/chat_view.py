@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, Response, stream_with_context
 from service.product_chat import initialize_chat, handle_chat_message
-from service.chat_service import get_total_message_count
+from service.chat_service import get_total_message_count, get_chat
 from service.auth import AuthService
 import json
 import asyncio
@@ -94,37 +94,45 @@ def chat():
         print(f"Error in chat endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@chat_view.route('/chat-history/<chat_id>', methods=['GET'])
-def get_chat(chat_id):
-    cookie_id = request.headers.get('X-Cookie-ID')
-    
-    if not cookie_id:
-        return jsonify({"error": "Cookie ID is required"}), 400
-        
-    try:
-        history = get_chat_history(cookie_id, chat_id)
-        return jsonify(history)
-    except Exception as e:
-        print(f"Error getting chat history: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-@chat_view.route('/chat/<chat_id>/history', methods=['GET'])
-def get_chat_history(chat_id):
+@chat_view.route('/chat/<product_id>/history', methods=['GET'])
+def get_chat_history(product_id):
+    """Get chat history for a specific product using file-based pagination"""
     try:
         cookie_id = request.headers.get('X-Cookie-ID')
         if not cookie_id:
             return jsonify({'error': 'Cookie ID is required'}), 400
 
+        # Get page number (each page is a separate file)
+        file_index = request.args.get('page', default=0, type=int)
+
         # Get chat data using chat service
-        chat_data = get_chat(cookie_id, chat_id)
-        
+        try:
+            chat_data = get_chat(
+                cookie_id=cookie_id,
+                product_id=product_id,
+                file_index=file_index
+            )
+        except Exception as e:
+            # If chat doesn't exist yet, return empty data
+            if "NoSuchKey" in str(e):
+                return jsonify({
+                    'status': 'success',
+                    'chat_data': {
+                        'product_id': product_id,
+                        'product_name': '',
+                        'brand_name': '',
+                        'image_url': '',
+                        'chat_history': []
+                    }
+                })
+            raise
+
         if not chat_data:
             return jsonify({'error': 'Chat not found'}), 404
 
         return jsonify({
             'status': 'success',
-            'chat_history': chat_data.get('chat_history', []),
-            'preloaded_context': chat_data.get('preloaded_context', '')
+            'chat_data': chat_data
         })
 
     except Exception as e:

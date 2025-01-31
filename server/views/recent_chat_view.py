@@ -10,8 +10,9 @@ def get_recent_chats_view():
         if not cookie_id:
             return jsonify({'error': 'Cookie ID is required'}), 400
         limit = request.args.get('limit', default=5, type=int)
-        
+        print(f"Getting recent chats for cookie_id: {cookie_id} with limit: {limit}")
         recent_chats = get_recent_chats(cookie_id, limit)
+        print(f"Recent chats: {recent_chats}")
         return jsonify({
             'status': 'success',
             'chats': recent_chats
