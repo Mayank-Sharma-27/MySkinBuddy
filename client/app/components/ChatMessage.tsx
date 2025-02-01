@@ -9,12 +9,19 @@ interface ChatMessageProps {
 
 function LoadingDots() {
   return (
-    <div className="flex items-center justify-center h-6">
-      <div className="flex items-center">
-        <div className="loading-dot"></div>
-        <div className="loading-dot"></div>
-        <div className="loading-dot"></div>
-      </div>
+    <div className="flex items-center space-x-1 px-2">
+      <div
+        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+        style={{ animationDelay: "0ms" }}
+      ></div>
+      <div
+        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+        style={{ animationDelay: "150ms" }}
+      ></div>
+      <div
+        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+        style={{ animationDelay: "300ms" }}
+      ></div>
     </div>
   );
 }
@@ -25,7 +32,15 @@ export function ChatMessage({
   timestamp,
   isLoading = false,
 }: ChatMessageProps) {
+  // If message is empty and not loading, don't render anything
+  if (!message && !isLoading) return null;
+
   const formatMessage = (text: string) => {
+    // If message is empty or loading, return loading dots
+    if (!text || isLoading) {
+      return <LoadingDots />;
+    }
+
     // Remove extra spacing and dashes
     const cleanText = text.replace(/\n---\n/g, "").replace(/\n\n+/g, "\n");
 
@@ -135,20 +150,18 @@ export function ChatMessage({
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       <div
         className={`${
-          isLoading ? "w-[80px]" : "max-w-[80%]"
+          isLoading ? "min-w-[60px]" : "max-w-[80%]"
         } rounded-2xl py-2 ${
           isUser
             ? "bg-gradient-to-r from-primary-500 to-secondary-500 text-white"
             : "bg-white border border-gray-200 text-gray-800"
         } ${isLoading ? "px-3" : "px-4"}`}
       >
-        {isLoading ? (
-          <LoadingDots />
-        ) : (
-          <div className="space-y-1">
-            <div className="whitespace-pre-wrap break-words">
-              {formatMessage(message)}
-            </div>
+        <div className="space-y-1">
+          <div className="whitespace-pre-wrap break-words">
+            {formatMessage(message)}
+          </div>
+          {!isLoading && (
             <div
               className={`text-xs ${
                 isUser ? "text-white/70" : "text-gray-500"
@@ -156,8 +169,8 @@ export function ChatMessage({
             >
               {new Date(timestamp).toLocaleTimeString()}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

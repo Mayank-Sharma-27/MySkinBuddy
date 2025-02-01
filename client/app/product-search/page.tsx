@@ -36,7 +36,6 @@ export default function ProductSearch() {
         const data = await response.json();
         setSearchResults(data);
       } catch (error) {
-        console.error("Error searching products:", error);
         setSearchResults([]);
       } finally {
         setIsLoading(false);

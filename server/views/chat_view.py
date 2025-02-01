@@ -83,12 +83,24 @@ def chat():
         print("Generating response")
         def generate():
             try:
+                # Just pass through the chunks from handle_chat_message
+                # They are already properly formatted as SSE messages
                 for chunk in handle_chat_message(cookie_id, product_id, user_message):
-                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+                    yield chunk
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                print(f"Error in generate: {str(e)}")
+                yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
-        return Response(stream_with_context(generate()), mimetype='text/event-stream')
+        response = Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'  # Disable buffering in nginx
+            }
+        )
+        return response
         
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")

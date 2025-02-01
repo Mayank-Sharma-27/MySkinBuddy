@@ -18,16 +18,19 @@ from datetime import datetime
 from service.s3_client import get_s3_client
 from langchain_google_genai import ChatGoogleGenerativeAI
 from duckduckgo_search import DDGS
-from service.chat_service import get_chat, save_chat, initialize_agents_data;
-from typing import Generator, AsyncGenerator
+from service.chat_service import get_chat, save_chat, initialize_agents_data, get_recent_chat;
+from typing import Generator, AsyncGenerator, Dict, Optional
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.generate_chat_response import generate_response 
 from service.context_builder import get_initial_context
 from service.agents.coordinator import AgentCoordinator
+from service.cookie_service import CookieService
 import asyncio
+import json
+from .chat_service import ChatService
+from .context_builder import ContextBuilder
 
 duckduckgo = DDGS(timeout=20)
-
 
 load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -57,103 +60,88 @@ pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 # Initialize coordinator
 coordinator = AgentCoordinator()
 
-def initialize_chat(cookie_id: str, product_id: str) -> dict:
-    """
-    Initialize or get existing chat session for a specific product
-    """
-    try:
+class ProductChat:
+    def __init__(self):
+        self.chat_service = ChatService()
+        self.context_builder = ContextBuilder()
+        self.agent_coordinator = AgentCoordinator()
+
+    def initialize_chat(self, cookie_id: str, product_id: str) -> Dict:
+        """Initialize a new chat session for a product."""
         try:
-            # Try to get existing chat
-            chat_data = get_chat(cookie_id, product_id)
-            if chat_data.get("product_name") and chat_data.get("brand_name"):
-                # Return existing chat if it has product info
-                chat_data_to_return = {
+            # Get chat history and context
+            chat_data = self.chat_service.get_chat(cookie_id, product_id)
+            context = self.context_builder.get_context(product_id)
+            
+            # Combine chat data with context
+            if chat_data:
+                chat_data["preloaded_context"] = context
+            else:
+                chat_data = {
+                    "chat_history": [],
                     "product_id": product_id,
-                    "product_name": chat_data["product_name"],
-                    "brand_name": chat_data["brand_name"],
-                    "image_url": chat_data["image_url"],
-                    "chat_history": chat_data["chat_history"],
+                    "preloaded_context": context
                 }
-                return chat_data_to_return
-        except:
-            pass  # If chat doesn't exist or is empty, continue to create new one
-
-        # Get initial context with product info
-        initial_context = get_initial_context(product_id)
-        if not initial_context or not initial_context.get('product'):
-            raise Exception("Failed to get product information")
-
-        product_name = initial_context['product']["metadata"]["product"]
-        brand_name = initial_context['product']["metadata"]["brand"]
-        image_url = initial_context['product']['metadata']['image_url']
-        
-        # Create chat session data
-        chat_data = {
-            "product_id": product_id,
-            "product_name": product_name,
-            "brand_name": brand_name,
-            "image_url": image_url,
-            "chat_history": [],
-            "preloaded_context": initial_context,
-            "created_time": datetime.utcnow().isoformat(),
-            "last_updated_time": datetime.utcnow().isoformat()
-        }
-        
-        # Save chat data
-        save_chat(cookie_id, product_id, chat_data)
-        
-        # Initialize agents data in background
-        initialize_agents_data(initial_context['product'])
-        
-        chat_data_to_return = {
-            "product_id": product_id,
-            "product_name": product_name,
-            "brand_name": brand_name,
-            "image_url": image_url,
-            "chat_history": [],
-        }
-        return chat_data_to_return
             
-    except Exception as e:
-        print(f"Error initializing chat: {str(e)}")
-        raise
-
-def handle_chat_message(cookie_id: str, product_id: str, user_question: str) -> Generator[str, None, None]:
-    """Handle a chat message and return the response"""
-    try:
-        print("Handling chat message")
-        chat_data = get_chat(cookie_id, product_id)
-        if not chat_data:
-            raise Exception("Chat not found")
+            return chat_data
             
-        # Generate response using coordinator
-        accumulated_response = ""
-        
-        # Process the question and get response chunks
-        for chunk in coordinator.process_question(
-            question=user_question,
-            context=chat_data,
-            chat_history=chat_data["chat_history"]
-        ):
-            accumulated_response += chunk
-            yield chunk
-        
-        # Update chat history
-        chat_data["chat_history"].append({
-            "role": "user",
-            "content": user_question,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        chat_data["chat_history"].append({
-            "role": "assistant",
-            "content": accumulated_response,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        
-        chat_data["last_updated_time"] = datetime.utcnow().isoformat()
-        save_chat(cookie_id, product_id, chat_data)
-        
-    except Exception as e:
-        print(f"Error handling message: {str(e)}")
-        raise
+        except Exception as e:
+            raise
+
+    def handle_message(
+        self,
+        cookie_id: str,
+        product_id: str,
+        message: str,
+        context: Optional[Dict] = None
+    ) -> Generator[str, None, None]:
+        """Handle an incoming chat message."""
+        try:
+            # Save the user's message
+            self.chat_service.save_chat_message(
+                cookie_id=cookie_id,
+                product_id=product_id,
+                message=message,
+                is_user=True
+            )
+            
+            # Get chat history
+            chat_history = self.chat_service.get_chat_history(
+                cookie_id=cookie_id,
+                product_id=product_id
+            )
+            
+            # Get or create context
+            if not context:
+                context = self.context_builder.get_context(product_id)
+            
+            # Process the question through the agent coordinator
+            accumulated_response = ""
+            for chunk in self.agent_coordinator.process_question(
+                question=message,
+                context=context,
+                chat_history=chat_history
+            ):
+                accumulated_response += chunk
+                
+                # Prepare chunk message
+                chunk_message = {
+                    "type": "assistant_chunk",
+                    "content": chunk
+                }
+                yield chunk_message
+            
+            # Save the assistant's complete response
+            self.chat_service.save_chat_message(
+                cookie_id=cookie_id,
+                product_id=product_id,
+                message=accumulated_response,
+                is_user=False
+            )
+            
+            # Send done message
+            yield {"type": "done"}
+            
+        except Exception as e:
+            raise
 

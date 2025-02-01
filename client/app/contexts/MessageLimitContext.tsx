@@ -60,7 +60,6 @@ export function MessageLimitProvider({ children }: { children: ReactNode }) {
       }
       return true;
     } catch (error) {
-      console.error("Message limit check failed:", error);
       return false;
     }
   }, [showLoginPrompt]);

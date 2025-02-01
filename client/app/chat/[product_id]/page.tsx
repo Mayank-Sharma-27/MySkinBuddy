@@ -31,6 +31,8 @@ export default function ChatPage({ params }: PageProps) {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let mounted = true;
+
     const initializeChat = async () => {
       try {
         // Wait for cookie to be available
@@ -38,7 +40,9 @@ export default function ChatPage({ params }: PageProps) {
           if (retryCount < 3) {
             // Retry after a short delay
             setTimeout(() => {
-              setRetryCount((prev) => prev + 1);
+              if (mounted) {
+                setRetryCount((prev) => prev + 1);
+              }
             }, 1000);
             return;
           }
@@ -57,11 +61,15 @@ export default function ChatPage({ params }: PageProps) {
           }
         );
 
+        if (!mounted) return;
+
         if (!historyResponse.ok) {
           throw new Error("Failed to fetch chat history");
         }
 
         const historyData = await historyResponse.json();
+
+        if (!mounted) return;
 
         // Check if we got empty chat data (no product info)
         if (
@@ -82,6 +90,8 @@ export default function ChatPage({ params }: PageProps) {
             }),
           });
 
+          if (!mounted) return;
+
           if (!startChatResponse.ok) {
             throw new Error("Failed to initialize chat");
           }
@@ -99,19 +109,26 @@ export default function ChatPage({ params }: PageProps) {
           throw new Error("Invalid chat data received");
         }
       } catch (error) {
-        console.error("Error initializing chat:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load chat. Please try again."
-        );
+        if (mounted) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load chat. Please try again."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeChat();
-  }, [product_id, cookieId, retryCount]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [product_id, cookieId]);
 
   const handleRetry = () => {
     setLoading(true);

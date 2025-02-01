@@ -42,8 +42,6 @@ export default function UserProfileForm() {
     try {
       const data = await getUserProfile();
       setProfile(data);
-    } catch (err) {
-      console.error("Failed to load profile:", err);
     } finally {
       setLoading(false);
     }

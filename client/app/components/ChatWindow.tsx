@@ -5,8 +5,9 @@ import { ChatMessage } from "./ChatMessage";
 import { Button } from "./ui/Button";
 import { useCookie } from "../utils/CookieProvider";
 import { useAuth } from "../contexts/AuthContext";
-import dynamic from "next/dynamic";
+import { io, Socket } from "socket.io-client";
 import { API_URL } from "../config";
+import dynamic from "next/dynamic";
 
 const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
 
@@ -47,89 +48,123 @@ interface ChatWindowProps {
 
 export function ChatWindow({
   productId,
-  chatData,
+  chatData: initialChatData,
   fullPage = false,
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [currentPage, setCurrentPage] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket>();
   const cookieId = useCookie();
   const { isLoggedIn } = useAuth();
 
-  const loadMoreMessages = async () => {
-    if (isLoadingMore || !hasMore || !cookieId) return;
+  useEffect(() => {
+    // Initialize socket connection
+    socketRef.current = io(API_URL, {
+      transports: ["websocket"],
+      query: {
+        cookie_id: cookieId,
+      },
+    });
 
-    try {
-      setIsLoadingMore(true);
-      const response = await fetch(
-        `${API_URL}/chat/${productId}/history?page=${currentPage + 1}`,
-        {
-          headers: {
-            "X-Cookie-ID": cookieId,
-          },
-        }
-      );
+    // Join chat room
+    if (cookieId && productId) {
+      socketRef.current.emit("join_chat", {
+        cookie_id: cookieId,
+        product_id: productId,
+      });
+    }
 
-      if (!response.ok) throw new Error("Failed to load more messages");
+    // Handle socket connection events
+    socketRef.current.on("connect", () => {
+      // Socket connected
+    });
 
-      const data = await response.json();
-      if (data.status === "success") {
-        const oldMessages = data.chat_data.chat_history.map((msg: any) => ({
+    socketRef.current.on("connect_error", (error) => {
+      // Handle connection error silently
+    });
+
+    // Handle incoming messages
+    socketRef.current.on("message", (data: any) => {
+      if (data.type === "user_message") {
+        // We already added the user message locally, so skip
+        return;
+      } else if (data.type === "assistant_chunk") {
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1];
+          if (!lastMessage?.isUser) {
+            // Update existing assistant message
+            const updatedMessages = [...prev];
+            updatedMessages[prev.length - 1] = {
+              ...lastMessage,
+              content: (lastMessage?.content || "") + data.content,
+              isLoading: true,
+            };
+            return updatedMessages;
+          }
+          return prev;
+        });
+      } else if (data.type === "done") {
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1];
+          if (!lastMessage?.isUser) {
+            const updatedMessages = [...prev];
+            updatedMessages[prev.length - 1] = {
+              ...lastMessage,
+              isLoading: false,
+            };
+            return updatedMessages;
+          }
+          return prev;
+        });
+        setIsLoading(false);
+      }
+    });
+
+    // Handle chat history
+    socketRef.current.on("chat_history", (data: any) => {
+      if (!data) return;
+
+      const formattedMessages =
+        data.chat_history?.map((msg: any) => ({
           id: msg.id || Date.now().toString(),
           content: msg.content,
           isUser: msg.role === "user",
           timestamp: msg.timestamp || new Date().toISOString(),
-        }));
+        })) || [];
 
-        setMessages((prev) => [...oldMessages, ...prev]);
-        setCurrentPage((prev) => prev + 1);
-        setHasMore(data.chat_data.pagination.has_more);
+      if (formattedMessages.length === 0 && data.product_name) {
+        const welcomeMessage = {
+          id: "welcome",
+          content: `Hi! I am ${data.product_name} from ${data.brand_name}. Please let me help you.`,
+          isUser: false,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages([welcomeMessage]);
+      } else {
+        setMessages(formattedMessages);
       }
-    } catch (error) {
-      console.error("Error loading more messages:", error);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
+    });
 
-  const handleScroll = () => {
-    if (!messagesContainerRef.current) return;
+    // Handle errors
+    socketRef.current.on("error", (error: any) => {
+      if (error.requires_login) {
+        setShowLoginModal(true);
+      }
+    });
 
-    const { scrollTop } = messagesContainerRef.current;
-    if (scrollTop === 0 && hasMore) {
-      loadMoreMessages();
-    }
-  };
-
-  useEffect(() => {
-    // Initialize messages from chat data
-    if (chatData) {
-      const welcomeMessage = {
-        id: "welcome",
-        content: `Hi! I am ${chatData.product_name} from ${chatData.brand_name}. Please let me help you.`,
-        isUser: false,
-        timestamp: new Date().toISOString(),
-      };
-
-      const formattedMessages = chatData.chat_history.map((msg: any) => ({
-        id: msg.id || Date.now().toString(),
-        content: msg.content,
-        isUser: msg.role === "user",
-        timestamp: msg.timestamp || new Date().toISOString(),
-      }));
-
-      setMessages(
-        formattedMessages.length > 0 ? formattedMessages : [welcomeMessage]
-      );
-      setCurrentPage(formattedMessages.length);
-    }
-  }, [chatData]);
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit("leave_chat", {
+          cookie_id: cookieId,
+          product_id: productId,
+        });
+        socketRef.current.disconnect();
+      }
+    };
+  }, [cookieId, productId]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -139,123 +174,37 @@ export function ChatWindow({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !cookieId) return;
+    if (!inputMessage.trim() || !cookieId || isLoading) return;
 
-    const newMessage = {
+    const messageContent = inputMessage.trim();
+
+    // Add user message locally first
+    const userMessage = {
       id: Date.now().toString(),
-      content: inputMessage,
+      content: messageContent,
       isUser: true,
       timestamp: new Date().toISOString(),
     };
 
-    // Add loading message
+    // Add an immediate loading message for the assistant
     const loadingMessage = {
-      id: "loading-" + Date.now().toString(),
+      id: Date.now().toString() + "-loading",
       content: "",
       isUser: false,
       timestamp: new Date().toISOString(),
       isLoading: true,
     };
 
-    setMessages((prev) => [...prev, newMessage, loadingMessage]);
+    setMessages((prev) => [...prev, userMessage, loadingMessage]);
     setInputMessage("");
     setIsLoading(true);
 
-    // Scroll to bottom immediately when sending
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-
-    try {
-      const response = await fetch(`${API_URL}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Cookie-ID": cookieId,
-        },
-        body: JSON.stringify({
-          product_id: productId,
-          message: inputMessage,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 403 && errorData.requires_login) {
-          setShowLoginModal(true);
-          return;
-        }
-        throw new Error("Failed to send message");
-      }
-
-      const reader = response.body?.getReader();
-      let partialResponse = "";
-
-      // Remove loading message when we start getting real response
-      setMessages((prev) => prev.filter((msg) => !msg.isLoading));
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = new TextDecoder().decode(value);
-          const lines = (partialResponse + chunk).split("\n");
-          partialResponse = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.content) {
-                  setMessages((prev) => {
-                    const lastMessage = prev[prev.length - 1];
-                    if (!lastMessage.isUser && !lastMessage.isLoading) {
-                      // Update existing assistant message
-                      return [
-                        ...prev.slice(0, -1),
-                        {
-                          ...lastMessage,
-                          content: lastMessage.content + data.content,
-                        },
-                      ];
-                    } else {
-                      // Create new assistant message
-                      return [
-                        ...prev,
-                        {
-                          id: Date.now().toString(),
-                          content: data.content,
-                          isUser: false,
-                          timestamp: new Date().toISOString(),
-                        },
-                      ];
-                    }
-                  });
-                }
-              } catch (e) {
-                console.error("Error parsing SSE data:", e);
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-      // Remove loading message and show error
-      setMessages((prev) => [
-        ...prev.filter((msg) => !msg.isLoading),
-        {
-          id: Date.now().toString(),
-          content:
-            "Sorry, there was an error sending your message. Please try again.",
-          isUser: false,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
+    // Emit the message
+    socketRef.current?.emit("chat_message", {
+      cookie_id: cookieId,
+      product_id: productId,
+      message: messageContent,
+    });
   };
 
   return (
@@ -264,21 +213,7 @@ export function ChatWindow({
         fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
       }`}
     >
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 bg-gray-50"
-      >
-        {isLoadingMore && (
-          <div className="text-center py-2">
-            <ChatMessage
-              message=""
-              isUser={false}
-              timestamp={new Date().toISOString()}
-              isLoading={true}
-            />
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage
             key={message.id}

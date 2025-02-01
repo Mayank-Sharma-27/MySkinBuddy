@@ -131,7 +131,27 @@ class AuthService:
         try:
             cookie_data = self.cookie_service.get_cookie_data(cookie_id)
             if cookie_data and cookie_data.get("is_logged_in"):
-                return cookie_data.get("user_email")
+                user_email = cookie_data.get("user_email")
+                
+                # Fetch user profile information
+                try:
+                    user_profile = self._get_from_s3(f"users/{user_email}/user_info.json")
+                    if user_profile:
+                        # Update cookie with user profile information
+                        cookie_data.update({
+                            "user_profile": {
+                                "skin_type": user_profile.get("skin_type", ""),
+                                "skin_issues": user_profile.get("skin_issues", []),
+                                "additional_info": user_profile.get("additional_info", ""),
+                                "location": user_profile.get("location", "")
+                            }
+                        })
+                        self.cookie_service.save_cookie_data(cookie_id, cookie_data)
+                except Exception as profile_error:
+                    print(f"Error fetching user profile: {str(profile_error)}")
+                    # Continue even if profile fetch fails
+                
+                return user_email
             return None
         except Exception as e:
             print(f"Error verifying cookie: {str(e)}")

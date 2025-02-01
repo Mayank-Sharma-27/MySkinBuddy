@@ -18,10 +18,10 @@ def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
             if product_id and product_id not in seen_products:
                 seen_products.add(product_id)
                 recent_chats.append({
-                    'product_name': chat['product_name'],  # UI expects 'product' instead of 'product_name'
+                    'product_name': chat['product_name'],
                     'image_url': chat['image_url'],
                     'product_id': product_id,
-                    'brand_name': chat['brand_name']  # UI expects 'brand' instead of 'brand_name'
+                    'brand_name': chat['brand_name']  
                 })
                 
                 if len(recent_chats) >= limit:

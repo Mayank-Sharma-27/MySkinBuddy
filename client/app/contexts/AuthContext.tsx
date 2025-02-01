@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserName(data.user_name);
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
+      // Remove console.error("Auth check failed:", error);
     }
   };
 

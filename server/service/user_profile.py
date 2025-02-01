@@ -4,6 +4,8 @@ import boto3
 import json
 from typing import Optional, Dict
 from datetime import datetime
+from .cookie_service import CookieService
+from .auth import AuthService
 
 load_dotenv()
 
@@ -16,6 +18,8 @@ class UserProfileService:
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
         )
+        self.cookie_service = CookieService()
+        self.auth_service = AuthService()
 
     def _save_to_s3(self, path: str, data: Dict) -> None:
         """Save data to S3"""
@@ -55,7 +59,31 @@ class UserProfileService:
                 "last_updated": datetime.utcnow().isoformat()
             }
             
+            # Save to S3
             self._save_to_s3(f"users/{user_email}/user_info.json", user_info)
+
+            # Update cookie with new profile information
+            try:
+                # Get current cookie ID from user login data
+                user_login = self._get_from_s3(f"users/{user_email}/user_login.json")
+                if user_login and user_login.get("cookie_id"):
+                    cookie_id = user_login["cookie_id"]
+                    cookie_data = self.cookie_service.get_cookie_data(cookie_id)
+                    
+                    if cookie_data:
+                        cookie_data.update({
+                            "user_profile": {
+                                "skin_type": skin_type,
+                                "skin_issues": skin_issues,
+                                "additional_info": additional_info,
+                                "location": location
+                            }
+                        })
+                        self.cookie_service.save_cookie_data(cookie_id, cookie_data)
+            except Exception as cookie_error:
+                print(f"Error updating cookie with profile: {str(cookie_error)}")
+                # Continue even if cookie update fails
+            
             return {"status": "success", "message": "User information saved successfully"}
         except Exception as e:
             print(f"Error saving user info: {str(e)}")

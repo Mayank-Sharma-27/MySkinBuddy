@@ -35,7 +35,7 @@ export default function Navbar() {
         setLoggedOut();
       }
     } catch (error) {
-      console.error("Logout error:", error);
+      // Remove console.error("Logout error:", error);
     }
   };
 

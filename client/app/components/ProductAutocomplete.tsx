@@ -91,7 +91,6 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
         setProducts(data);
         setShowDropdown(true);
       } catch (error) {
-        console.error("Error getting suggestions:", error);
         setProducts([]);
       } finally {
         setIsLoading(false);
@@ -154,7 +153,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
         throw new Error(data.error || "Failed to start chat");
       }
     } catch (error) {
-      console.error("Error starting chat:", error);
+      // Remove console.error("Error starting chat:", error);
     }
   };
 

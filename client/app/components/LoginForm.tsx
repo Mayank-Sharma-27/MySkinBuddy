@@ -55,7 +55,6 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         setError(data.error || "Login failed");
       }
     } catch (error) {
-      console.error("Login error:", error);
       setError("Failed to login. Please try again.");
     } finally {
       setLoading(false);

@@ -1,11 +1,15 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from views import product_view, search_product, chat_view, auth_view, recent_chat_view, user_profile_view
+from service.websocket_service import socketio
+from views import register_views
 import boto3
 import os
 import datetime
 
+# Create the Flask application instance
 app = Flask(__name__)
+
+# Configure CORS globally with all necessary settings
 CORS(app, resources={  
     r"/recent-chats": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/search-products": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
@@ -18,6 +22,12 @@ CORS(app, resources={
     r"/chat/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
     r"/health": {"origins": ["*"]}
 })
+
+# Register all views/routes
+register_views(app)
+
+# Initialize SocketIO with the Flask app
+socketio.init_app(app)
 
 @app.route('/health')
 def health_check():     
@@ -39,13 +49,5 @@ def health_check():
             'timestamp': datetime.datetime.utcnow().isoformat()
         }), 500
 
-# Register routes
-product_view.register(app, {})
-search_product.register(app)
-chat_view.register(app)
-auth_view.register(app)
-recent_chat_view.register(app)
-user_profile_view.register(app)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True, port=8080)

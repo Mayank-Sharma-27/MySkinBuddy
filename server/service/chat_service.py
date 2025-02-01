@@ -3,7 +3,7 @@ import os
 from typing import List, Dict, Optional
 import json
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from service.agents.product_information_agent import ProductInformationAgent
 
 # Initialize S3 client once
@@ -121,7 +121,6 @@ def save_chat(cookie_id: str, product_id: str, chat_data: dict):
         )
 
     except Exception as e:
-        print(f"Error saving chat: {str(e)}")
         raise
 
 def get_chat(cookie_id: str, product_id: str, file_index: int = 0) -> dict:
@@ -168,6 +167,17 @@ def get_chat(cookie_id: str, product_id: str, file_index: int = 0) -> dict:
                     Key=messages_key
                 )['Body'].read()
             )
+            
+            # Deduplicate messages based on content and timestamp
+            seen_messages = set()
+            unique_messages = []
+            for msg in messages:
+                msg_key = f"{msg['content']}_{msg['timestamp']}"
+                if msg_key not in seen_messages:
+                    seen_messages.add(msg_key)
+                    unique_messages.append(msg)
+            messages = unique_messages
+            
         except s3_client.exceptions.NoSuchKey:
             messages = []
 
@@ -186,14 +196,12 @@ def get_chat(cookie_id: str, product_id: str, file_index: int = 0) -> dict:
             }
         }
     except Exception as e:
-        print(f"Error getting chat: {str(e)}")
         raise
 
 def get_all_chats_from_s3(cookie_id: str) -> list:
     """Get all chats metadata from S3"""
     try:
         prefix = f"chats/{cookie_id}/"
-        print(f"Getting chat for key: {prefix}")
         response = s3_client.list_objects_v2(
             Bucket=bucket_name,
             Prefix=prefix
@@ -219,7 +227,6 @@ def get_all_chats_from_s3(cookie_id: str) -> list:
             
         return sorted(chats, key=lambda x: x['created_time'], reverse=True)
     except Exception as e:
-        print(f"Error getting product chats: {str(e)}")
         raise
 
 def initialize_agents_data(product_data: dict):
@@ -229,8 +236,8 @@ def initialize_agents_data(product_data: dict):
         try:
             agent = ProductInformationAgent()
             agent.get_product_info(product_data)
-        except Exception as e:
-            print(f"Error in product info agent: {str(e)}")
+        except Exception:
+            pass
 
     run_product_info()
 
@@ -243,5 +250,91 @@ def get_total_message_count(cookie_id: str) -> int:
             total_messages += len(chat.get("chat_history", []))
         return total_messages
     except Exception as e:
-        print(f"Error getting total message count: {str(e)}")
+        raise
+
+def get_recent_chat(cookie_id: str, product_id: str) -> dict:
+    """
+    Get chat data from S3 with only the last 2 pages of messages for context
+    Args:
+        cookie_id: User's cookie ID
+        product_id: Product ID
+    """
+    try:
+        # Get metadata first
+        metadata_key = f"chats/{cookie_id}/{product_id}/metadata.json"
+        try:
+            metadata = json.loads(
+                s3_client.get_object(
+                    Bucket=bucket_name,
+                    Key=metadata_key
+                )['Body'].read()
+            )
+        except s3_client.exceptions.NoSuchKey:
+            # Return empty chat data for new chats
+            return {
+                "product_id": product_id,
+                "product_name": "",
+                "brand_name": "",
+                "image_url": "",
+                "chat_history": [],
+                "preloaded_context": {},
+                "pagination": {
+                    "current_page": 0,
+                    "total_pages": 1,
+                    "total_messages": 0,
+                    "has_more": False
+                }
+            }
+
+        current_file_index = metadata.get("current_file_index", 0)
+        messages = []
+
+        # Get last two file indices
+        start_index = max(0, current_file_index - 1)
+        file_indices = range(start_index, current_file_index + 1)
+
+        def load_messages(file_index):
+            messages_key = f"chats/{cookie_id}/{product_id}/messages_{file_index}.json"
+            try:
+                file_messages = json.loads(
+                    s3_client.get_object(
+                        Bucket=bucket_name,
+                        Key=messages_key
+                    )['Body'].read()
+                )
+                return file_messages
+            except s3_client.exceptions.NoSuchKey:
+                return []
+
+        # Load messages in parallel
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_index = {executor.submit(load_messages, idx): idx for idx in file_indices}
+            for future in as_completed(future_to_index):
+                messages.extend(future.result())
+
+        # Deduplicate messages based on content and timestamp
+        seen_messages = set()
+        unique_messages = []
+        for msg in messages:
+            msg_key = f"{msg['content']}_{msg['timestamp']}"
+            if msg_key not in seen_messages:
+                seen_messages.add(msg_key)
+                unique_messages.append(msg)
+        messages = unique_messages
+
+        return {
+            "product_id": product_id,
+            "product_name": metadata.get("product_name"),
+            "brand_name": metadata.get("brand_name"),
+            "image_url": metadata.get("image_url"),
+            "chat_history": messages,
+            "preloaded_context": metadata.get("preloaded_context", {}),
+            "pagination": {
+                "current_page": current_file_index,
+                "total_pages": current_file_index + 1,
+                "total_messages": metadata.get("total_messages", 0),
+                "has_more": False
+            }
+        }
+    except Exception as e:
         raise
