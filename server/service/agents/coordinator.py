@@ -32,7 +32,6 @@ class AgentCoordinator:
         
         # For now, just use the first capable agent
         agent = agents_to_use[0]
-        print(f"Using agent: {agent.__class__.__name__}")
         
         for chunk in agent.process(question, context, chat_history):
             yield chunk 

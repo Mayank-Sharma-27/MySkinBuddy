@@ -25,7 +25,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchResults
 from duckduckgo_search import DDGS
 import google.api_core.exceptions
-from service.chat_service import get_chat, save_chat;
+from service.chat_service import ChatService
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.tools import DuckDuckGoSearchResults
@@ -88,6 +88,7 @@ memory = ConversationBufferMemory(return_messages=True)
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
+chat_service = ChatService()
 
 def get_search_results(product_name: str, brand_name: str):
     max_retries = 3
@@ -138,12 +139,22 @@ def extract_urls_from_search_results(search_results) -> list:
             
     return urls
 
-def generate_response(chat_session: dict, user_question: str):
-    print("\n⌛ Generating response...")
-    
+def generate_response(cookie_id: str, product_id: str, message: str) -> Generator[str, None, None]:
     try:
+        # Get existing chat data
+        chat_data = chat_service.get_chat(cookie_id, product_id)
+        
+        # Save user message
+        chat_data["chat_history"].append({
+            "role": "user",
+            "content": message,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        chat_service.save_chat(cookie_id, product_id, chat_data)
+        
+        # Generate response
         # Get the product context from preloaded context
-        product_doc = chat_session["preloaded_context"]["product"]
+        product_doc = chat_data["preloaded_context"]["product"]
         product_info = product_doc["page_content"]
         
         # Extract ingredients from the product info
@@ -158,19 +169,19 @@ def generate_response(chat_session: dict, user_question: str):
         )
         
         # Format chat history with clear question-answer pairs
-        chat_history = chat_session.get("chat_history", [])
+        chat_history = chat_data.get("chat_history", [])
         #formatted_history = "\n".join([
         #    f"Previous Question: {exchange['question']}\n"
         #    f"Previous Answer: {exchange['response']}\n"
         #    for exchange in chat_history[-3:]  # Keep last 3 exchanges for context
         #])
-        product_name = chat_session["preloaded_context"]['product']["metadata"]["product"]
-        brand_name = chat_session["preloaded_context"]['product']["metadata"]["brand"]
+        product_name = chat_data["preloaded_context"]['product']["metadata"]["product"]
+        brand_name = chat_data["preloaded_context"]['product']["metadata"]["brand"]
 
         full_prompt = prompt.format(
             context=context,
-            question=user_question,
-            chat_history=[],
+            question=message,
+            chat_history=chat_history,
             product_name= product_name,
             brand_name= brand_name
         )

@@ -18,7 +18,6 @@ from datetime import datetime
 from service.s3_client import get_s3_client
 from langchain_google_genai import ChatGoogleGenerativeAI
 from duckduckgo_search import DDGS
-from service.chat_service import get_chat, save_chat, initialize_agents_data, get_recent_chat;
 from typing import Generator, AsyncGenerator, Dict, Optional
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.generate_chat_response import generate_response 
@@ -71,7 +70,7 @@ class ProductChat:
         try:
             # Get chat history and context
             chat_data = self.chat_service.get_chat(cookie_id, product_id)
-            context = self.context_builder.get_context(product_id)
+            context = self.context_builder.get_context(cookie_id, product_id)
             
             # Combine chat data with context
             if chat_data:
@@ -98,29 +97,24 @@ class ProductChat:
         """Handle an incoming chat message."""
         try:
             # Save the user's message
-            self.chat_service.save_chat_message(
-                cookie_id=cookie_id,
-                product_id=product_id,
-                message=message,
-                is_user=True
-            )
-            
-            # Get chat history
-            chat_history = self.chat_service.get_chat_history(
-                cookie_id=cookie_id,
-                product_id=product_id
-            )
+            chat_data = self.chat_service.get_chat(cookie_id, product_id)
+            chat_data["chat_history"].append({
+                "role": "user",
+                "content": message,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            self.chat_service.save_chat(cookie_id, product_id, chat_data)
             
             # Get or create context
             if not context:
-                context = self.context_builder.get_context(product_id)
+                context = self.context_builder.get_context(cookie_id, product_id)
             
             # Process the question through the agent coordinator
             accumulated_response = ""
             for chunk in self.agent_coordinator.process_question(
                 question=message,
                 context=context,
-                chat_history=chat_history
+                chat_history=chat_data.get("chat_history", [])
             ):
                 accumulated_response += chunk
                 
@@ -132,12 +126,12 @@ class ProductChat:
                 yield chunk_message
             
             # Save the assistant's complete response
-            self.chat_service.save_chat_message(
-                cookie_id=cookie_id,
-                product_id=product_id,
-                message=accumulated_response,
-                is_user=False
-            )
+            chat_data["chat_history"].append({
+                "role": "assistant",
+                "content": accumulated_response,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            self.chat_service.save_chat(cookie_id, product_id, chat_data)
             
             # Send done message
             yield {"type": "done"}

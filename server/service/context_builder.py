@@ -22,7 +22,7 @@ from datetime import datetime
 from service.s3_client import get_s3_client
 from langchain_google_genai import ChatGoogleGenerativeAI
 from duckduckgo_search import DDGS
-from service.chat_service import get_chat, save_chat;
+from service.chat_service import ChatService
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.s3_client import get_s3_client
@@ -52,6 +52,34 @@ embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-0
 
 s3_client = get_s3_client()
 pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
+
+chat_service = ChatService()
+
+class ContextBuilder:
+    def __init__(self):
+        self.chat_service = ChatService()
+        
+    def get_context(self, cookie_id: str, product_id: str) -> dict:
+        """Get or build context for a product chat"""
+        try:
+            # Get existing context from chat service
+            chat_data = self.chat_service.get_chat(cookie_id, product_id)
+            if chat_data and chat_data.get("preloaded_context"):
+                return chat_data["preloaded_context"]
+                
+            # Build new context using get_initial_context
+            context = get_initial_context(product_id)
+            
+            # Save context
+            chat_data = chat_data or {}
+            chat_data["preloaded_context"] = context
+            self.chat_service.save_chat(cookie_id, product_id, chat_data)
+            
+            return context
+            
+        except Exception as e:
+            print(f"Error building context: {str(e)}")
+            raise
 
 def get_initial_context(product_id: str):
     """

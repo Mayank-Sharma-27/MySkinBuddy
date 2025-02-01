@@ -1,7 +1,8 @@
 from service.auth import AuthService
-from service.chat_service import get_total_message_count
+from service.chat_service import ChatService
 
 auth_service = AuthService()
+chat_service = ChatService()
 
 def check_message_limit(cookie_id: str) -> dict:
     """
@@ -17,7 +18,7 @@ def check_message_limit(cookie_id: str) -> dict:
 
     user_email = auth_service.verify_cookie(cookie_id)
     if not user_email:  # User is not logged in
-        message_count = get_total_message_count(cookie_id)
+        message_count = chat_service.get_total_message_count(cookie_id)
         if message_count >= 10:
             return {
                 'error': 'Message limit reached',

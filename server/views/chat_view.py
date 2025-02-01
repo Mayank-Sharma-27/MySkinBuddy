@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request, Response, stream_with_context
-from service.product_chat import initialize_chat, handle_chat_message
-from service.chat_service import get_total_message_count, get_chat
+from service.product_chat import ProductChat
+from service.chat_service import ChatService
 from service.auth import AuthService
 import json
 import asyncio
 
 auth_service = AuthService()
+chat_service = ChatService()
+product_chat = ProductChat()
 
 chat_view = Blueprint('chat_view', __name__)
 
@@ -13,7 +15,7 @@ def check_message_limit(cookie_id: str) -> dict:
     """Helper function to check if user has reached message limit"""
     user_email = auth_service.verify_cookie(cookie_id)
     if not user_email:
-        message_count = get_total_message_count(cookie_id)
+        message_count = chat_service.get_total_message_count(cookie_id)
         if message_count >= 10:
             return {
                 'error': 'Message limit reached',
@@ -52,7 +54,7 @@ def start_chat():
         if not cookie_id:
             return jsonify({'error': 'Cookie ID is required'}), 400
             
-        chat_data = initialize_chat(cookie_id, product_id)
+        chat_data = product_chat.initialize_chat(cookie_id, product_id)
         
         return jsonify({
             'status': 'success',
@@ -83,10 +85,9 @@ def chat():
         print("Generating response")
         def generate():
             try:
-                # Just pass through the chunks from handle_chat_message
-                # They are already properly formatted as SSE messages
-                for chunk in handle_chat_message(cookie_id, product_id, user_message):
-                    yield chunk
+                # Use the ProductChat instance to handle messages
+                for chunk in product_chat.handle_message(cookie_id, product_id, user_message):
+                    yield f"data: {json.dumps(chunk)}\n\n"
             except Exception as e:
                 print(f"Error in generate: {str(e)}")
                 yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
@@ -119,7 +120,7 @@ def get_chat_history(product_id):
 
         # Get chat data using chat service
         try:
-            chat_data = get_chat(
+            chat_data = chat_service.get_chat(
                 cookie_id=cookie_id,
                 product_id=product_id,
                 file_index=file_index
@@ -150,6 +151,23 @@ def get_chat_history(product_id):
     except Exception as e:
         print(f"Error getting chat history: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@chat_view.route('/chat/<cookie_id>/<product_id>', methods=['GET'])
+def get_chat_route(cookie_id, product_id):
+    try:
+        file_index = request.args.get('file_index', default=0, type=int)
+        chat_data = chat_service.get_chat(cookie_id, product_id, file_index)
+        return jsonify(chat_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@chat_view.route('/chat/total_messages/<cookie_id>', methods=['GET'])
+def get_total_messages(cookie_id):
+    try:
+        total = chat_service.get_total_message_count(cookie_id)
+        return jsonify({"total_messages": total})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def register(app, options=None):
     if options is None:

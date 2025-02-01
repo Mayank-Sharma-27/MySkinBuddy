@@ -1,5 +1,7 @@
 from typing import List, Dict
-from .chat_service import get_all_chats_from_s3
+from .chat_service import ChatService
+
+chat_service = ChatService()
 
 def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     """
@@ -7,7 +9,7 @@ def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     Returns list of unique chats with product info, ordered by most recent first
     """
     try:
-        all_chats = get_all_chats_from_s3(cookie_id)
+        all_chats = chat_service.get_all_chats_from_s3(cookie_id)
         print(f"All chats: {all_chats}")
         # Transform chats to only include required fields
         recent_chats = []
