@@ -5,7 +5,6 @@ import { ChatMessage } from "./ChatMessage";
 import { Button } from "./ui/Button";
 import { useCookie } from "../utils/CookieProvider";
 import { useAuth } from "../contexts/AuthContext";
-import { io, Socket } from "socket.io-client";
 import { API_URL } from "../config";
 import dynamic from "next/dynamic";
 
@@ -56,115 +55,24 @@ export function ChatWindow({
   const [isLoading, setIsLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket>();
   const cookieId = useCookie();
   const { isLoggedIn } = useAuth();
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    // Initialize socket connection
-    socketRef.current = io(API_URL, {
-      transports: ["websocket"],
-      query: {
-        cookie_id: cookieId,
-      },
-    });
-
-    // Join chat room
-    if (cookieId && productId) {
-      socketRef.current.emit("join_chat", {
-        cookie_id: cookieId,
-        product_id: productId,
-      });
-    }
-
-    // Handle socket connection events
-    socketRef.current.on("connect", () => {
-      // Socket connected
-    });
-
-    socketRef.current.on("connect_error", (error) => {
-      // Handle connection error silently
-    });
-
-    // Handle incoming messages
-    socketRef.current.on("message", (data: any) => {
-      if (data.type === "user_message") {
-        // We already added the user message locally, so skip
-        return;
-      } else if (data.type === "assistant_chunk") {
-        setMessages((prev) => {
-          const lastMessage = prev[prev.length - 1];
-          if (!lastMessage?.isUser) {
-            // Update existing assistant message
-            const updatedMessages = [...prev];
-            updatedMessages[prev.length - 1] = {
-              ...lastMessage,
-              content: (lastMessage?.content || "") + data.content,
-              isLoading: true,
-            };
-            return updatedMessages;
-          }
-          return prev;
-        });
-      } else if (data.type === "done") {
-        setMessages((prev) => {
-          const lastMessage = prev[prev.length - 1];
-          if (!lastMessage?.isUser) {
-            const updatedMessages = [...prev];
-            updatedMessages[prev.length - 1] = {
-              ...lastMessage,
-              isLoading: false,
-            };
-            return updatedMessages;
-          }
-          return prev;
-        });
-        setIsLoading(false);
-      }
-    });
-
-    // Handle chat history
-    socketRef.current.on("chat_history", (data: any) => {
-      if (!data) return;
-
-      const formattedMessages =
-        data.chat_history?.map((msg: any) => ({
+    // Initialize messages from chat data
+    if (initialChatData?.chat_history) {
+      const formattedMessages = initialChatData.chat_history.map(
+        (msg: any) => ({
           id: msg.id || Date.now().toString(),
           content: msg.content,
           isUser: msg.role === "user",
           timestamp: msg.timestamp || new Date().toISOString(),
-        })) || [];
-
-      if (formattedMessages.length === 0 && data.product_name) {
-        const welcomeMessage = {
-          id: "welcome",
-          content: `Hi! I am ${data.product_name} from ${data.brand_name}. Please let me help you.`,
-          isUser: false,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages([welcomeMessage]);
-      } else {
-        setMessages(formattedMessages);
-      }
-    });
-
-    // Handle errors
-    socketRef.current.on("error", (error: any) => {
-      if (error.requires_login) {
-        setShowLoginModal(true);
-      }
-    });
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.emit("leave_chat", {
-          cookie_id: cookieId,
-          product_id: productId,
-        });
-        socketRef.current.disconnect();
-      }
-    };
-  }, [cookieId, productId]);
+        })
+      );
+      setMessages(formattedMessages);
+    }
+  }, [initialChatData]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -177,34 +85,124 @@ export function ChatWindow({
     if (!inputMessage.trim() || !cookieId || isLoading) return;
 
     const messageContent = inputMessage.trim();
+    setInputMessage("");
+    setIsLoading(true);
 
-    // Add user message locally first
-    const userMessage = {
+    // Add user message immediately
+    const userMessage: Message = {
       id: Date.now().toString(),
       content: messageContent,
       isUser: true,
       timestamp: new Date().toISOString(),
     };
+    setMessages((prev) => [...prev, userMessage]);
 
-    // Add an immediate loading message for the assistant
-    const loadingMessage = {
-      id: Date.now().toString() + "-loading",
-      content: "",
-      isUser: false,
-      timestamp: new Date().toISOString(),
-      isLoading: true,
-    };
+    try {
+      // Create loading message for assistant
+      const loadingMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "",
+        isUser: false,
+        timestamp: new Date().toISOString(),
+        isLoading: true,
+      };
+      setMessages((prev) => [...prev, loadingMessage]);
 
-    setMessages((prev) => [...prev, userMessage, loadingMessage]);
-    setInputMessage("");
-    setIsLoading(true);
+      // Send message to server
+      const response = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Cookie-ID": cookieId,
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          message: messageContent,
+        }),
+      });
 
-    // Emit the message
-    socketRef.current?.emit("chat_message", {
-      cookie_id: cookieId,
-      product_id: productId,
-      message: messageContent,
-    });
+      if (!response.ok) {
+        const error = await response.json();
+        if (error.requires_login) {
+          setShowLoginModal(true);
+        }
+        throw new Error(error.message || "Failed to send message");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedResponse = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const rawData = line.slice(5);
+                if (!rawData.trim()) continue;
+
+                const data = JSON.parse(rawData);
+                console.log("Received data:", data);
+
+                if (data.type === "error") {
+                  throw new Error(data.content);
+                }
+
+                // Handle different response formats
+                let content = "";
+                if (data.content) {
+                  content = data.content;
+                } else if (data.response_metadata) {
+                  // Extract content from the LangChain format
+                  content = data.text || data.content || "";
+                } else if (typeof data === "string") {
+                  content = data;
+                }
+
+                if (content) {
+                  accumulatedResponse = content;
+                  // Update the assistant message
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (!lastMessage.isUser) {
+                      lastMessage.content = accumulatedResponse;
+                      lastMessage.isLoading = true;
+                    }
+                    return newMessages;
+                  });
+                }
+              } catch (e) {
+                console.error("Error parsing SSE data:", e, "Raw line:", line);
+              }
+            }
+          }
+        }
+      }
+
+      // Final update to remove loading state
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (!lastMessage.isUser) {
+          lastMessage.content = accumulatedResponse;
+          lastMessage.isLoading = false;
+        }
+        return newMessages;
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Remove loading message on error
+      setMessages((prev) => prev.slice(0, -1));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
