@@ -7,7 +7,6 @@ from langchain_together.embeddings import TogetherEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_community.vectorstores import InMemoryVectorStore
 from langchain_openai.embeddings import OpenAIEmbeddings
-from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
@@ -24,6 +23,7 @@ from service.generate_chat_response import generate_response
 from service.context_builder import get_initial_context
 from service.agents.coordinator import AgentCoordinator
 from service.cookie_service import CookieService
+from service.embeddings import pinecone_vector_store
 import asyncio
 import json
 from .chat_service import ChatService
@@ -54,7 +54,6 @@ parser = StrOutputParser()
 embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
 s3_client = get_s3_client()
-pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
 # Initialize coordinator
 coordinator = AgentCoordinator()

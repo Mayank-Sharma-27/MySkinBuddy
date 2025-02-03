@@ -21,7 +21,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 model = ChatTogether(api_key =api_key,
                      model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy-google")
+index = pc.Index("product-buddy")
+google_index = pc.Index("product-buddy-google")
 parser = StrOutputParser()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -30,12 +31,32 @@ BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", metric="cosine")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small", metric="cosine")
+google_embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", metric="cosine")
 s3_client = get_s3_client()  
-pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
-# Export both for use in other modules
-__all__ = ['embeddings', 'pinecone_vector_store']
+class VectorStoreManager:
+    _instance = None
+    _vector_store = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(VectorStoreManager, cls).__new__(cls)
+            cls._vector_store = PineconeVectorStore(index=google_index, embedding=google_embeddings)
+        return cls._instance
+
+    @classmethod
+    def get_vector_store(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._vector_store
+
+# Initialize the singleton instance
+vector_store_manager = VectorStoreManager()
+pinecone_vector_store = vector_store_manager.get_vector_store()
+
+# Export for use in other modules
+__all__ = ['embeddings', 'pinecone_vector_store', 'vector_store_manager']
 
 def split_json_into_chunks(document_data, metadata):
     chunks = []

@@ -9,7 +9,6 @@ from langchain_community.vectorstores import InMemoryVectorStore
 from langchain_openai.embeddings import OpenAIEmbeddings
 import boto3
 import json
-from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
@@ -26,6 +25,7 @@ from service.chat_service import ChatService
 from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.s3_client import get_s3_client
+from service.embeddings import pinecone_vector_store
 
 duckduckgo = DDGS(timeout=20)
 load_dotenv()
@@ -45,14 +45,12 @@ model = ChatGoogleGenerativeAI(
     streaming=True
 )
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy-google")
+index = pc.Index("product-buddy")
 parser = StrOutputParser()
-embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small", metric="cosine")
 
 
 s3_client = get_s3_client()
-pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
-
 chat_service = ChatService()
 
 class ContextBuilder:

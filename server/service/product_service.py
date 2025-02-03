@@ -8,7 +8,6 @@ from langchain_community.vectorstores import InMemoryVectorStore
 from langchain_openai.embeddings import OpenAIEmbeddings
 import boto3
 import json
-from langchain_pinecone.vectorstores import PineconeVectorStore
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
@@ -16,6 +15,7 @@ import time
 from pinecone import Pinecone, ServerlessSpec
 import re
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from service.embeddings import pinecone_vector_store
 load_dotenv()
 
 api_key = os.getenv("TOGETHER_API_KEY") 
@@ -25,9 +25,6 @@ index = pc.Index("product-buddy-google")
 
 parser = StrOutputParser()
 embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-
-pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
-load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")

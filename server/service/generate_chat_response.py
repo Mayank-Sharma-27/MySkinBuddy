@@ -9,7 +9,6 @@ from langchain_community.vectorstores import InMemoryVectorStore
 from langchain_openai.embeddings import OpenAIEmbeddings
 import boto3
 import json
-from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
@@ -30,6 +29,7 @@ from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from service.embeddings import pinecone_vector_store
 
 
 load_dotenv()
@@ -86,7 +86,6 @@ embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-0
 
 memory = ConversationBufferMemory(return_messages=True)
 s3_client = get_s3_client()
-pinecone_vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
 chat_service = ChatService()
 
