@@ -10,7 +10,6 @@ def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     """
     try:
         all_chats = chat_service.get_all_chats_from_s3(cookie_id)
-        print(f"All chats: {all_chats}")
         # Transform chats to only include required fields
         recent_chats = []
         seen_products = set()
