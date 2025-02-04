@@ -40,7 +40,6 @@ ENV/
 
 # Project specific
 *.log
-*.json
 node_modules/
 
 # Scrapers
@@ -48,5 +47,10 @@ server/scrapers/
 scrapers/
 *.py[cod]
 products.json
+
+# Ignore all JSON files except package.json and package-lock.json
+*.json
+!package.json
+!package-lock.json
 
 # ... rest of the file ... 
