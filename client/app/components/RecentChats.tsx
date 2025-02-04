@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCookie } from "../utils/CookieProvider";
 import { API_URL } from "../config";
 import Image from "next/image";
+import { useMessageLimit } from "../contexts/MessageLimitContext";
 
 interface Chat {
   image_url: string;
@@ -17,6 +18,7 @@ interface Chat {
 export default function RecentChats() {
   const router = useRouter();
   const cookieId = useCookie();
+  const { checkMessageLimit } = useMessageLimit();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,17 @@ export default function RecentChats() {
 
     fetchChats();
   }, [cookieId]);
+
+  const handleChatSelect = async (chat: Chat) => {
+    try {
+      const canProceed = await checkMessageLimit();
+      if (!canProceed) return;
+
+      router.push(`/chat/${chat.product_id}`);
+    } catch (error) {
+      setError("Failed to open chat. Please try again.");
+    }
+  };
 
   if (loading) {
     return (
@@ -105,7 +118,7 @@ export default function RecentChats() {
       {chats.map((chat) => (
         <button
           key={chat.product_id}
-          onClick={() => router.push(`/chat/${chat.product_id}`)}
+          onClick={() => handleChatSelect(chat)}
           className="flex gap-6 p-6 rounded-xl bg-white/60 backdrop-blur-sm hover:bg-white/80 
                      transition-all duration-200 group border border-gray-100 
                      hover:border-primary-100 hover:shadow-lg hover:-translate-y-0.5"

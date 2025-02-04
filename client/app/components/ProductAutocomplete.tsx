@@ -117,43 +117,9 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
       const canProceed = await checkMessageLimit();
       if (!canProceed) return;
 
-      const cookieId = getCookieId();
-      if (!cookieId) {
-        throw new Error("No cookie ID available");
-      }
-
-      const response = await fetch(`${API_URL}/start-chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Cookie-ID": cookieId,
-        },
-        body: JSON.stringify({
-          product_id: product.product_id,
-        }),
-      });
-
-      if (response.status === 403) {
-        const data = await response.json();
-        if (data.requires_login) return;
-      }
-
-      if (!response.ok) {
-        throw new Error("Failed to start chat");
-      }
-
-      const data = await response.json();
-      if (data.status === "success" && data.chat_data) {
-        localStorage.setItem(
-          `chat_data_${product.product_id}`,
-          JSON.stringify(data.chat_data)
-        );
-        router.replace(`/chat/${product.product_id}`);
-      } else {
-        throw new Error(data.error || "Failed to start chat");
-      }
+      router.push(`/chat/${product.product_id}`);
     } catch (error) {
-      // Remove console.error("Error starting chat:", error);
+      // Handle error silently
     }
   };
 

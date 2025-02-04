@@ -36,7 +36,6 @@ interface ChatData {
   product_name: string;
   brand_name: string;
   image_url: string;
-  preloaded_context: any;
 }
 
 interface ChatWindowProps {
