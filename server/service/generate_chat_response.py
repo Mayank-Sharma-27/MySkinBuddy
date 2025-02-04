@@ -203,7 +203,7 @@ def generate_response(cookie_id: str, product_id: str, message: str) -> Generato
 def get_chat_history(cookie_id: str, chat_id: str):
     """Get chat history from S3"""
     try:
-        chat_data = get_chat(cookie_id, chat_id)
+        chat_data = chat_service.get_chat(cookie_id, chat_id)
         return chat_data
     except Exception as e:
         print(f"Error getting chat history: {str(e)}")

@@ -113,7 +113,16 @@ def get_chat_history(product_id):
     try:
         cookie_id = request.headers.get('X-Cookie-ID')
         if not cookie_id:
-            return jsonify({'error': 'Cookie ID is required'}), 400
+            return jsonify({
+                'status': 'success',
+                'chat_data': {
+                    'product_id': product_id,
+                    'product_name': '',
+                    'brand_name': '',
+                    'image_url': '',
+                    'chat_history': []
+                }
+            })
 
         # Get page number (each page is a separate file)
         file_index = request.args.get('page', default=0, type=int)
@@ -126,22 +135,30 @@ def get_chat_history(product_id):
                 file_index=file_index
             )
         except Exception as e:
-            # If chat doesn't exist yet, return empty data
-            if "NoSuchKey" in str(e):
-                return jsonify({
-                    'status': 'success',
-                    'chat_data': {
-                        'product_id': product_id,
-                        'product_name': '',
-                        'brand_name': '',
-                        'image_url': '',
-                        'chat_history': []
-                    }
-                })
-            raise
+            # For any error, return empty data
+            print(f"Error fetching chat data: {str(e)}")
+            return jsonify({
+                'status': 'success',
+                'chat_data': {
+                    'product_id': product_id,
+                    'product_name': '',
+                    'brand_name': '',
+                    'image_url': '',
+                    'chat_history': []
+                }
+            })
 
         if not chat_data:
-            return jsonify({'error': 'Chat not found'}), 404
+            return jsonify({
+                'status': 'success',
+                'chat_data': {
+                    'product_id': product_id,
+                    'product_name': '',
+                    'brand_name': '',
+                    'image_url': '',
+                    'chat_history': []
+                }
+            })
 
         return jsonify({
             'status': 'success',
@@ -150,7 +167,16 @@ def get_chat_history(product_id):
 
     except Exception as e:
         print(f"Error getting chat history: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'status': 'success',
+            'chat_data': {
+                'product_id': product_id,
+                'product_name': '',
+                'brand_name': '',
+                'image_url': '',
+                'chat_history': []
+            }
+        })
 
 @chat_view.route('/chat/<cookie_id>/<product_id>', methods=['GET'])
 def get_chat_route(cookie_id, product_id):
