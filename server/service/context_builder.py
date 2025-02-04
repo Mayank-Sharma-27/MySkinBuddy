@@ -26,6 +26,7 @@ from typing import Generator
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.s3_client import get_s3_client
 from service.embeddings import pinecone_vector_store
+from service.user_profile import UserProfileService
 
 duckduckgo = DDGS(timeout=20)
 load_dotenv()
@@ -33,26 +34,10 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
 BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "chats"
-BATCH_SIZE = 100
-api_key = os.getenv("PERPLEXITY_API_KEY") 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-model = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    temperature=0.1,
-    max_tokens=None,
-    timeout=30,
-    max_retries=3,
-    streaming=True
-)
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy")
-parser = StrOutputParser()
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small", metric="cosine")
-
 
 s3_client = get_s3_client()
 chat_service = ChatService()
-
+user_profile_service = UserProfileService()
 class ContextBuilder:
     def __init__(self):
         self.chat_service = ChatService()
@@ -67,11 +52,7 @@ class ContextBuilder:
                 
             # Build new context using get_initial_context
             context = get_initial_context(product_id)
-            
-            # Save context
-            chat_data = chat_data or {}
-            chat_data["preloaded_context"] = context
-            self.chat_service.save_chat(cookie_id, product_id, chat_data)
+            context["user_information"] = user_profile_service.get_user_info(cookie_id)
             
             return context
             

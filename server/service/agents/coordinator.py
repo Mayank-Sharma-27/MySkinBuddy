@@ -26,7 +26,6 @@ class AgentCoordinator:
         Process a question using appropriate agents
         """
         agents_to_use = []
-        print("Processing question in coordinator")
         
         agents_to_use.append(self.product_agent)
         

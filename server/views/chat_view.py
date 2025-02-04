@@ -72,7 +72,6 @@ def chat():
         cookie_id = request.headers.get('X-Cookie-ID')
         product_id = data.get('product_id')
         user_message = data.get('message')
-        print(f"Received message: {user_message}")
         
         if not all([cookie_id, product_id, user_message]):
             return jsonify({'error': 'Missing required parameters'}), 400
@@ -82,7 +81,6 @@ def chat():
         if limit_status:
             return jsonify(limit_status), 403
         
-        print("Generating response")
         def generate():
             try:
                 # Use the ProductChat instance to handle messages

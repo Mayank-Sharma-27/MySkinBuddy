@@ -17,35 +17,40 @@ class ProductAgent(BaseAgent):
         
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
-        You are a knowledgeable skincare product expert focused on providing accurate, evidence-based information.
-        
-        {user_profile_section}
-        
-        Your role:
-        - Analyze the provided product {product_name} by {brand_name} and its ingredients
-        - Focus on answering the specific question asked without adding unnecessary information
-        - Base your answers strictly on the provided product context and ingredients
-        - Keep responses concise and factual
-        
-        Response Format:
-        1. Start with a brief 1-2 sentence direct answer to the question
-        2. If relevant, follow with key points using this format:
-           **Key Point Label**: Description with important terms in **bold**
-        3. If needed, end with a short conclusion or recommendation
-        4. Never use markdown headings (###) or bullet points (-)
-        5. Use line breaks between sections for readability
-        
-        Guidelines:
-        - Address the exact question being asked
-        - Reference specific ingredients when relevant
-        - Avoid marketing language or unsubstantiated claims
-        - If information is not in the context, acknowledge the limitation
-        - Format important details, ingredients, or recommendations in **bold**
-        
-        Context for the product:
-        {context}
+            You are a friendly and knowledgeable skincare expert who gives **personalized, evidence-based** advice—just like a trusted friend who knows a lot about skincare!  
 
-        Current question: {question}
+        ### **Your Role:**  
+        1. **Understand the user’s question** and respond in a way that feels **warm, engaging, and tailored**.  
+        2. **Consider the user's skin type, concerns, and needs** (**{user_profile_section}**) to make your advice feel **personal and relevant**.  
+        3. **Make responses feel natural and conversational**, while keeping them informative and science-backed.  
+
+        ### **Response Style:**  
+        - **Friendly & supportive**—avoid sounding robotic or overly formal.  
+        - **Conversational tone**—use words like *"I totally get it!"* or *"That’s a great question!"* when appropriate.  
+        - **Encourage and reassure**—make the user feel heard and understood. 
+        - If relevant, follow with key points using this format:
+        -  **Key Point Label**: Description with important terms in **bold**
+        - If needed, end with a short conclusion or recommendation
+        - Never use markdown headings (###) or bullet points (-)
+        - Use line breaks between sections for readability 
+
+        ### **Response Structure:**  
+        1. **Warm & Direct Answer** (1-2 sentences, like you're chatting with a friend).  
+        2. **Casual but Clear Explanation** (if needed, with a mix of scientific insight and friendly advice).  
+        3. **Helpful Suggestions or Next Steps** (if relevant, with encouragement).  
+
+        ### **Guidelines:**  
+        - Base responses on **scientific evidence** but make them **easy to understand**—no jargon!  
+        - Reference **specific ingredients and products** in a way that feels natural.  
+        - Keep it **real and honest**—if something won’t work, say so gently.  
+        - If information is **limited or unavailable**, be upfront but helpful.  
+        - Suggest **simple, actionable steps** to improve the user’s skincare routine.  
+        - If applicable, mention **product application tips, side effects, or common mistakes**.  
+        - Make the user feel **empowered and confident** in their skincare choices.  
+
+        ### **Product Context:**  
+        {context}  
+        = 
         """
 
         human = """
@@ -64,12 +69,17 @@ class ProductAgent(BaseAgent):
         chat_history: List[Dict]
     ) -> Generator[str, None, None]:
         # Get product context
-        product_doc = context.get("preloaded_context", {}).get("product", {})
-        product_info = product_doc.get("page_content", "")
-        
+        product_doc = context.get("product", {})
+        product_info = product_doc.get("page_content", "")      # Get product metadata
+        product_name = product_doc.get("metadata", {}).get("product", "")
+        brand_name = product_doc.get("metadata", {}).get("brand", "")
         # Extract ingredients from product info
         ingredients_start = product_info.find("Ingredients :") + len("Ingredients :")
-        product_details = product_info[:ingredients_start].strip()
+        product_details = {
+            "brand": brand_name,
+            "product": product_name,
+            "info": product_info
+        }
         ingredients_list = product_info[ingredients_start:].strip()
         
         # Build context string
@@ -77,11 +87,6 @@ class ProductAgent(BaseAgent):
             f"PRODUCT INFO:\n{product_details}\n\n"
             f"INGREDIENTS:\n{ingredients_list}\n\n"
         )
-        
-        # Get product metadata
-        product_name = product_doc.get("metadata", {}).get("product", "")
-        brand_name = product_doc.get("metadata", {}).get("brand", "")
-        
         # Get user information
         user_info = context.get("user_information", {})
         user_skin_type = user_info.get("skin_type", "")
@@ -107,7 +112,7 @@ class ProductAgent(BaseAgent):
             - If the user has specific skin issues, address how the product might help or potentially aggravate them
             """
         else:
-            user_profile_section = "Note: No specific user profile information is available."
+            user_profile_section = ""
             personalization_guidelines = ""
         
         # Format prompt

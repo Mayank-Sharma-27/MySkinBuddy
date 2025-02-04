@@ -89,10 +89,10 @@ class UserProfileService:
             print(f"Error saving user info: {str(e)}")
             raise
 
-    def get_user_info(self, user_email: str) -> Optional[Dict]:
+    def get_user_info(self, cookie_id: str) -> Optional[Dict]:
         """Get user profile information"""
         try:
-            return self._get_from_s3(f"users/{user_email}/user_info.json")
+            return self.cookie_service.get_cookie_data(cookie_id).get("user_profile")
         except Exception as e:
             print(f"Error getting user info: {str(e)}")
             raise 

@@ -7,10 +7,10 @@ recent_chat_view = Blueprint('recent_chats', __name__)
 def get_recent_chats_view():
     try:
         cookie_id = request.headers.get('X-Cookie-ID')
+        print(f"Cookie ID: {cookie_id}")
         if not cookie_id:
             return jsonify({'error': 'Cookie ID is required'}), 400
         limit = request.args.get('limit', default=5, type=int)
-        print(f"Getting recent chats for cookie_id: {cookie_id} with limit: {limit}")
         recent_chats = get_recent_chats(cookie_id, limit)
         print(f"Recent chats: {recent_chats}")
         return jsonify({

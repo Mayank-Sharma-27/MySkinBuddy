@@ -34,7 +34,6 @@ class ChatService:
                 "current_file_index": 0,
                 "product_id": product_id    
             }
-
             # Try to get existing metadata
             try:
                 existing_metadata = self.s3_client.get_object(
@@ -142,18 +141,23 @@ class ChatService:
                     )['Body'].read()
                 )
             except self.s3_client.exceptions.NoSuchKey:
-                # Return empty chat data for new chats
+                # Return empty chat data with welcome message for new chats
                 return {
                     "product_id": product_id,
                     "product_name": "",
                     "brand_name": "",
                     "image_url": "",
-                    "chat_history": [],
+                    "chat_history": [{
+                        "content": "Hi! I am your personalized skincare buddy. How can I help you today?",
+                        "role": "assistant",
+                        "id": "welcome_message",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }],
                     "preloaded_context": {},
                     "pagination": {
                         "current_page": 0,
                         "total_pages": 1,
-                        "total_messages": 0,
+                        "total_messages": 1,
                         "has_more": False
                     }
                 }
@@ -179,7 +183,19 @@ class ChatService:
                 messages = unique_messages
                 
             except self.s3_client.exceptions.NoSuchKey:
-                messages = []
+                # For empty message files, include welcome message if it's the first page
+                if file_index == 0:
+                    product_name = metadata.get("product_name", "")
+                    brand_name = metadata.get("brand_name", "")
+                    welcome_msg = f"Hi! I am your personalized skincare buddy. I'm here to help you with {product_name} by {brand_name}. How can I assist you today?"
+                    messages = [{
+                        "content": welcome_msg,
+                        "role": "assistant",
+                        "id": "welcome_message",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }]
+                else:
+                    messages = []
 
             return {
                 "product_id": product_id,
@@ -206,28 +222,38 @@ class ChatService:
                 Bucket=self.bucket_name,
                 Prefix=prefix
             )
-            
+
             chats = []
-            for obj in response.get('Contents', []):
-                # Only process metadata.json files
-                if not obj['Key'].endswith('metadata.json'):
-                    continue
+            # First, collect all metadata files
+            metadata_files = [obj['Key'] for obj in response.get('Contents', []) 
+                            if obj['Key'].endswith('metadata.json')]
+            print(f"Metadata files: {metadata_files}")
+            
+            # Process each metadata file
+            for metadata_key in metadata_files:
+                try:
+                    chat_data = self.s3_client.get_object(
+                        Bucket=self.bucket_name,
+                        Key=metadata_key
+                    )
+                    metadata = json.loads(chat_data['Body'].read())
+                    print(f"Metadata: {metadata}")
                     
-                chat_data = self.s3_client.get_object(
-                    Bucket=self.bucket_name,
-                    Key=obj['Key']
-                )
-                metadata = json.loads(chat_data['Body'].read())
-                
-                # Skip chats without product name
-                if not metadata.get('product_name'):
-                    continue
+                    # Skip chats without product name
+                    if not metadata.get('product_name'):
+                        continue
                     
-                chats.append(metadata)
+                    # Add chat to list if it has valid metadata
+                    chats.append(metadata)
+                        
+                except Exception as e:
+                    print(f"Error processing metadata file {metadata_key}: {str(e)}")
+                    continue
                 
-            return sorted(chats, key=lambda x: x['created_time'], reverse=True)
+            return sorted(chats, key=lambda x: x.get('last_updated_time', x.get('created_time', '')), reverse=True)
         except Exception as e:
-            raise
+            print(f"Error getting all chats: {str(e)}")
+            return []
 
     def initialize_agents_data(self, product_data: dict):
         """Initialize data from all agents in background"""
@@ -244,13 +270,30 @@ class ChatService:
     def get_total_message_count(self, cookie_id: str) -> int:
         """Get total number of messages across all chats for a user"""
         try:
-            chats = self.get_all_chats_from_s3(cookie_id)
             total_messages = 0
-            for chat in chats:
-                total_messages += len(chat.get("chat_history", []))
+            prefix = f"chats/{cookie_id}/"
+            
+            # List all objects in the user's chat directory
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=prefix
+            )
+            
+            # Process each metadata file to get total messages
+            for obj in response.get('Contents', []):
+                if obj['Key'].endswith('metadata.json'):
+                    metadata = json.loads(
+                        self.s3_client.get_object(
+                            Bucket=self.bucket_name,
+                            Key=obj['Key']
+                        )['Body'].read()
+                    )
+                    total_messages += metadata.get('total_messages', 0)
+                    
             return total_messages
         except Exception as e:
-            raise
+            print(f"Error getting total message count: {str(e)}")
+            return 0
 
     def get_recent_chat(self, cookie_id: str, product_id: str) -> dict:
         """

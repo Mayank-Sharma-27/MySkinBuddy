@@ -19,7 +19,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from duckduckgo_search import DDGS
 from typing import Generator, AsyncGenerator, Dict, Optional
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from service.generate_chat_response import generate_response 
 from service.context_builder import get_initial_context
 from service.agents.coordinator import AgentCoordinator
 from service.cookie_service import CookieService
@@ -70,16 +69,25 @@ class ProductChat:
             # Get chat history and context
             chat_data = self.chat_service.get_chat(cookie_id, product_id)
             context = self.context_builder.get_context(cookie_id, product_id)
-            
             # Combine chat data with context
-            if chat_data:
-                chat_data["preloaded_context"] = context
-            else:
-                chat_data = {
-                    "chat_history": [],
+            product_name = context.get('product').get('metadata').get("product")
+            brand_name = context.get('product').get('metadata').get("brand")
+            welcome_msg = f"Hi! I am your personalized skincare buddy. I'm here to help you with {product_name} by {brand_name}. How can I assist you today?"
+            messages = [{
+                        "content": welcome_msg,
+                        "role": "assistant",
+                        "id": "welcome_message",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }]
+            chat_data = {
+                    "product_name": product_name,
+                    "brand_name": brand_name,
+                    "image_url": context.get('product').get('metadata').get("image_url"),
+                    "chat_history": messages,
                     "product_id": product_id,
                     "preloaded_context": context
                 }
+            self.chat_service.save_chat(cookie_id, product_id, chat_data)    
             
             return chat_data
             
@@ -90,8 +98,7 @@ class ProductChat:
         self,
         cookie_id: str,
         product_id: str,
-        message: str,
-        context: Optional[Dict] = None
+        message: str
     ) -> Generator[str, None, None]:
         """Handle an incoming chat message."""
         try:
@@ -103,7 +110,7 @@ class ProductChat:
                 "timestamp": datetime.utcnow().isoformat()
             })
             self.chat_service.save_chat(cookie_id, product_id, chat_data)
-            
+            context = chat_data.get("preloaded_context")
             # Get or create context
             if not context:
                 context = self.context_builder.get_context(cookie_id, product_id)
@@ -131,7 +138,6 @@ class ProductChat:
                 "timestamp": datetime.utcnow().isoformat()
             })
             self.chat_service.save_chat(cookie_id, product_id, chat_data)
-            
             # Send done message
             yield {"type": "done"}
             
