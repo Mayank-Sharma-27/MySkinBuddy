@@ -6,9 +6,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copy source code and environment files
-COPY . .
+# Copy environment file first
 COPY .env.production .env.local
+
+# Copy rest of the source code
+COPY . .
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED 1
