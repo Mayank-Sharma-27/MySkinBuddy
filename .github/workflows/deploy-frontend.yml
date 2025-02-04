@@ -11,7 +11,7 @@ env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: myskinbuddy-frontend
   ECS_CLUSTER: myskinbuddy-cluster
-  ECS_SERVICE: myskinbuddy-frontend-3000
+  ECS_SERVICE: myskinbuddy-frontend
   CONTAINER_NAME: frontend
 
 jobs:
@@ -50,7 +50,12 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          echo "Current directory contents:"
+          ls -la
+          echo "\nContents of package.json:"
+          cat package.json
+          echo "\nStarting Docker build with verbose output..."
+          docker build --progress=plain -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
