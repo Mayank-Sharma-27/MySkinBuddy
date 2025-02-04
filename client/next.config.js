@@ -15,6 +15,11 @@ const nextConfig = {
       },
     ],
   },
+  swcMinify: true,
+  experimental: {
+    // Disable SWC loader to use platform-specific binaries
+    swcLoader: false,
+  },
 };
 
 module.exports = nextConfig;

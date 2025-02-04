@@ -7,6 +7,11 @@ interface ChatMessageProps {
   isLoading?: boolean;
 }
 
+interface Source {
+  name: string;
+  url?: string;
+}
+
 function LoadingDots() {
   return (
     <div className="flex items-center space-x-1 px-2">
@@ -71,13 +76,17 @@ export function ChatMessage({
       .filter(Boolean);
 
     // Remove duplicate sources based on name
-    const uniqueSources = sources.reduce((acc: any[], current) => {
-      const isDuplicate = acc.find((item) => item.name === current.name);
-      if (!isDuplicate) {
-        acc.push(current);
-      }
-      return acc;
-    }, []);
+    const uniqueSources = (sources as (Source | null)[]).reduce<Source[]>(
+      (acc, current) => {
+        if (!current) return acc;
+        const isDuplicate = acc.find((item) => item.name === current.name);
+        if (!isDuplicate) {
+          acc.push(current);
+        }
+        return acc;
+      },
+      []
+    );
 
     return (
       <div className="space-y-2">

@@ -7,10 +7,11 @@ import { API_URL } from "../config";
 import Image from "next/image";
 
 interface Chat {
-  brand: string;
   image_url: string;
   product: string;
   product_id: string;
+  product_name: string;
+  brand_name: string;
 }
 
 export default function RecentChats() {

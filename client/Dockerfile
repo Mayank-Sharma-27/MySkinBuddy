@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source code and environment files
 COPY . .
@@ -12,25 +12,30 @@ COPY .env.production .env.local
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
 RUN npm run build
 
 # Production image
-FROM node:18-alpine AS runner
+FROM --platform=linux/amd64 node:18-alpine AS runner
 WORKDIR /app
 
+# Don't run production as root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy necessary files from builder
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Set environment variables
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Copy necessary files from builder
-COPY --from=builder /app/next.config.js ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/.env.local ./
+USER nextjs
 
+# Expose port
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
+# Start the application
 CMD ["node", "server.js"]

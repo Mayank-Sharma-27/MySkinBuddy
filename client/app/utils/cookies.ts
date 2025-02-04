@@ -10,7 +10,7 @@ export const generateUUID = () => {
   });
 };
 
-export const getCookieId = (): string | null => {
+export const getCookieId = (): string => {
   try {
     // First try to get from document.cookie
     const cookies = document.cookie.split(";");
@@ -28,8 +28,17 @@ export const getCookieId = (): string | null => {
 
     return cookieId;
   } catch (error) {
-    console.error("Error managing cookie:", error);
-    return null;
+    // If there's any error, generate a new UUID
+    const newCookieId = generateUUID();
+    try {
+      document.cookie = `${COOKIE_NAME}=${newCookieId}; path=/; max-age=${
+        365 * 24 * 60 * 60
+      }; SameSite=Strict`;
+    } catch (e) {
+      // If we can't set the cookie, still return the UUID
+      console.error("Error setting cookie:", e);
+    }
+    return newCookieId;
   }
 };
 
