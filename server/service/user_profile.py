@@ -95,3 +95,4 @@ class UserProfileService:
             return self.cookie_service.get_cookie_data(cookie_id).get("user_profile")
         except Exception as e:
             print(f"Error getting user info: {str(e)}")
+            return {}
