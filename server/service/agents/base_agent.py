@@ -5,6 +5,10 @@ from langchain.prompts import ChatPromptTemplate
 from ..embeddings import pinecone_vector_store, embeddings
 from ..utils.response_formatter import format_agent_response
 
+import os 
+
+api_key = os.getenv("PERPLEXITY_API_KEY") 
+
 class BaseAgent(ABC):
     """
     Base agent class that all other agents will inherit from.
@@ -14,7 +18,8 @@ class BaseAgent(ABC):
     def __init__(self):
         self.model = ChatPerplexity(
             model="sonar-reasoning",
-            temperature=0.3
+            temperature=0.3,
+            pplx_api_key=api_key
         )
         self.embeddings = embeddings
         self.vector_store = pinecone_vector_store
