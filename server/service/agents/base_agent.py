@@ -7,7 +7,7 @@ from ..utils.response_formatter import format_agent_response
 
 import os 
 
-api_key = os.getenv("PERPLEXITY_API_KEY") 
+api_key = os.getenv("PPLX_API_KEY") 
 
 class BaseAgent(ABC):
     """

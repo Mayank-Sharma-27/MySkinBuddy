@@ -237,7 +237,6 @@ class ChatService:
                         Key=metadata_key
                     )
                     metadata = json.loads(chat_data['Body'].read())
-                    print(f"Metadata: {metadata}")
                     
                     # Skip chats without product name
                     if not metadata.get('product_name'):
