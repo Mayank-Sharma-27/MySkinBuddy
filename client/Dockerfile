@@ -4,11 +4,14 @@ FROM --platform=linux/amd64 node:18-alpine AS builder
 WORKDIR /app
 
 # Install dependencies
-COPY package.json package-lock.json ./
-RUN ls -la && npm install
+COPY ["package.json", "package-lock.json", "./"]
+RUN echo "Contents of current directory:" && \
+    ls -la && \
+    echo "Installing dependencies..." && \
+    npm install
 
 # Copy environment file first
-COPY .env.production .env.local
+COPY [".env.production", ".env.local"]
 
 # Copy rest of the source code
 COPY . .

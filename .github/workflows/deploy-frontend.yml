@@ -50,12 +50,18 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          pwd
           echo "Current directory contents:"
           ls -la
+          echo "\nVerifying package.json exists:"
+          if [ ! -f "package.json" ]; then
+            echo "Error: package.json not found!"
+            exit 1
+          fi
           echo "\nContents of package.json:"
           cat package.json
           echo "\nStarting Docker build with verbose output..."
-          docker build --progress=plain -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          DOCKER_BUILDKIT=1 docker build --no-cache --progress=plain -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
