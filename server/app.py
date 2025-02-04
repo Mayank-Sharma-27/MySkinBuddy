@@ -11,15 +11,15 @@ app = Flask(__name__)
 
 # Configure CORS globally with all necessary settings
 CORS(app, resources={  
-    r"/recent-chats": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/search-products": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/start-chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/product-suggestions": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/auth/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/profile": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/check-message-limit": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
-    r"/chat/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com"]},
+    r"/recent-chats": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/search-products": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/start-chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/product-suggestions": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/auth/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/profile": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/check-message-limit": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
+    r"/chat/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
     r"/health": {"origins": ["*"]}
 })
 

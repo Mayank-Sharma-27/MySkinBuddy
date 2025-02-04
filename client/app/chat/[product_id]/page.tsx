@@ -7,7 +7,6 @@ import { API_URL } from "../../config";
 import { useCookie } from "../../utils/CookieProvider";
 
 interface ChatData {
-  chat_id: string;
   chat_history: any[];
   product_id: string;
   product_name: string;
@@ -51,71 +50,135 @@ export default function ChatPage({ params }: PageProps) {
           return;
         }
 
-        // First try to get existing chat
-        const historyResponse = await fetch(
-          `${API_URL}/chat/${product_id}/history?page=0`,
-          {
-            headers: {
-              "X-Cookie-ID": cookieId,
-            },
-          }
-        );
-
-        if (!mounted) return;
-
-        if (!historyResponse.ok) {
-          throw new Error("Failed to fetch chat history");
-        }
-
-        const historyData = await historyResponse.json();
-
-        if (!mounted) return;
-
-        // Check if we got empty chat data (no product info)
-        if (
-          historyData.status === "success" &&
-          historyData.chat_data &&
-          (!historyData.chat_data.product_name ||
-            !historyData.chat_data.brand_name)
-        ) {
-          // Initialize new chat
-          const startChatResponse = await fetch(`${API_URL}/start-chat`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Cookie-ID": cookieId,
-            },
-            body: JSON.stringify({
-              product_id: product_id,
-            }),
-          });
+        try {
+          // First try to get existing chat
+          const historyResponse = await fetch(
+            `${API_URL}/chat/${product_id}/history?page=0`,
+            {
+              headers: {
+                "X-Cookie-ID": cookieId,
+              },
+            }
+          );
 
           if (!mounted) return;
 
-          if (!startChatResponse.ok) {
-            throw new Error("Failed to initialize chat");
-          }
+          // Even if history fetch fails, we'll continue with empty chat data
+          const historyData = historyResponse.ok
+            ? await historyResponse.json()
+            : {
+                status: "success",
+                chat_data: {
+                  product_id,
+                  product_name: "",
+                  brand_name: "",
+                  image_url: "",
+                  chat_history: [],
+                },
+              };
 
-          const data = await startChatResponse.json();
-          if (data.status === "success" && data.chat_data) {
-            setChatData(data.chat_data);
+          if (!mounted) return;
+
+          // Initialize new chat if we don't have product info
+          if (
+            historyData.status === "success" &&
+            historyData.chat_data &&
+            (!historyData.chat_data.product_name ||
+              !historyData.chat_data.brand_name)
+          ) {
+            try {
+              // Initialize new chat
+              const startChatResponse = await fetch(`${API_URL}/start-chat`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-Cookie-ID": cookieId,
+                },
+                body: JSON.stringify({
+                  product_id: product_id,
+                }),
+              });
+
+              if (!mounted) return;
+
+              if (startChatResponse.ok) {
+                const data = await startChatResponse.json();
+                if (data.status === "success" && data.chat_data) {
+                  setChatData(data.chat_data);
+                } else {
+                  // If start chat fails, use empty chat data
+                  setChatData({
+                    product_id,
+                    chat_history: [],
+                    product_name: "",
+                    brand_name: "",
+                    image_url: "",
+                    preloaded_context: null,
+                  });
+                }
+              } else {
+                // If start chat fails, use empty chat data
+                setChatData({
+                  product_id,
+                  chat_history: [],
+                  product_name: "",
+                  brand_name: "",
+                  image_url: "",
+                  preloaded_context: null,
+                });
+              }
+            } catch (error) {
+              // If start chat fails, use empty chat data
+              console.error("Error starting chat:", error);
+              setChatData({
+                product_id,
+                chat_history: [],
+                product_name: "",
+                brand_name: "",
+                image_url: "",
+                preloaded_context: null,
+              });
+            }
+          } else if (
+            historyData.status === "success" &&
+            historyData.chat_data
+          ) {
+            // Use existing chat data
+            setChatData(historyData.chat_data);
           } else {
-            throw new Error(data.error || "Failed to initialize chat");
+            // Use empty chat data as fallback
+            setChatData({
+              product_id,
+              chat_history: [],
+              product_name: "",
+              brand_name: "",
+              image_url: "",
+              preloaded_context: null,
+            });
           }
-        } else if (historyData.status === "success" && historyData.chat_data) {
-          // Use existing chat data
-          setChatData(historyData.chat_data);
-        } else {
-          throw new Error("Invalid chat data received");
+        } catch (error) {
+          console.error("Error fetching chat history:", error);
+          // Use empty chat data as fallback
+          setChatData({
+            product_id,
+            chat_history: [],
+            product_name: "",
+            brand_name: "",
+            image_url: "",
+            preloaded_context: null,
+          });
         }
       } catch (error) {
-        if (mounted) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Failed to load chat. Please try again."
-          );
-        }
+        console.error("Error in initializeChat:", error);
+        // Use empty chat data as fallback
+        setChatData({
+          product_id,
+          chat_history: [],
+          product_name: "",
+          brand_name: "",
+          image_url: "",
+          preloaded_context: null,
+        });
       } finally {
         if (mounted) {
           setLoading(false);
@@ -128,7 +191,7 @@ export default function ChatPage({ params }: PageProps) {
     return () => {
       mounted = false;
     };
-  }, [product_id, cookieId]);
+  }, [product_id, cookieId, retryCount]);
 
   const handleRetry = () => {
     setLoading(true);

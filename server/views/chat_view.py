@@ -110,9 +110,12 @@ def chat():
 @chat_view.route('/chat/<product_id>/history', methods=['GET'])
 def get_chat_history(product_id):
     """Get chat history for a specific product using file-based pagination"""
+    print(f"Received request for chat history. Product ID: {product_id}")
     try:
         cookie_id = request.headers.get('X-Cookie-ID')
+        print(f"Cookie ID from headers: {cookie_id}")
         if not cookie_id:
+            print("No cookie ID found in headers")
             return jsonify({
                 'status': 'success',
                 'chat_data': {
@@ -126,6 +129,7 @@ def get_chat_history(product_id):
 
         # Get page number (each page is a separate file)
         file_index = request.args.get('page', default=0, type=int)
+        print(f"Page index: {file_index}")
 
         # Get chat data using chat service
         try:
