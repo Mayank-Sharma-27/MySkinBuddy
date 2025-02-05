@@ -120,7 +120,6 @@ class ProductChat:
             
             # Process the question through the agent coordinator
             accumulated_response = ""
-            logger.info("We are calling the agent coordinator")
             for chunk in self.agent_coordinator.process_question(
                 question=message,
                 context=context,
