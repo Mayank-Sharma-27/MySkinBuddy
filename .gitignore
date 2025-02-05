@@ -52,5 +52,6 @@ products.json
 *.json
 !package.json
 !package-lock.json
+!task-*.json
 
 # ... rest of the file ... 
