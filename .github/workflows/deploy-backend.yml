@@ -38,7 +38,6 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Debug: Verify task definition file
-        working-directory: ./server
         run: |
           echo "Current directory:"
           pwd
