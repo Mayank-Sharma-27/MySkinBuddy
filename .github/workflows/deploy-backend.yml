@@ -13,6 +13,7 @@ env:
   ECS_CLUSTER: myskinbuddy-cluster
   ECS_SERVICE: myskinbuddy-backend-8080
   CONTAINER_NAME: backend
+  TASK_DEFINITION_FILE: server/task-definition-backend.json
 
 jobs:
   deploy:
