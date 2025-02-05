@@ -28,7 +28,6 @@ class BaseAgent(ABC):
     def can_handle(self, question: str, context: Dict) -> bool:
         """
         Determine if this agent can handle the given question
-        
         Args:
             question: The user's question
             context: The current conversation context
