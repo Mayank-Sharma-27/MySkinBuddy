@@ -54,12 +54,13 @@ jobs:
         working-directory: ./server
         run: |
           NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE --query "taskDefinition.taskDefinitionArn" --output text)
-          echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_OUTPUT
+          echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+          echo "New task definition ARN: $NEW_TASK_DEF_ARN"
 
       - name: Force new deployment
         run: |
           aws ecs update-service --cluster $ECS_CLUSTER \
-                                --service $ECS_SERVICE \
-                                --task-definition $NEW_TASK_DEF_ARN \
-                                --force-new-deployment \
-                                --region $AWS_REGION \
+                                 --service $ECS_SERVICE \
+                                 --task-definition $NEW_TASK_DEF_ARN \
+                                 --force-new-deployment \
+                                 --region $AWS_REGION
