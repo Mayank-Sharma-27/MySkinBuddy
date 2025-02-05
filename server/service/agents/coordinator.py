@@ -12,9 +12,6 @@ class AgentCoordinator:
     
     def __init__(self):
         self.product_agent = ProductAgent()
-        self.pricing_agent = PricingAgent()
-        self.ingredient_agent = IngredientAgent()
-        self.similar_products_agent = SimilarProductsAgent()
         
     def process_question(
         self,
