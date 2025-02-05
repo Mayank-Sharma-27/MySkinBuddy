@@ -1,5 +1,6 @@
 {
-    "taskDefinitionArn": "arn:aws:ecs:us-east-1:117669335220:task-definition/myskinbuddy-backend:3",
+    "family": "myskinbuddy-backend",
+    "networkMode": "awsvpc",
     "containerDefinitions": [
         {
             "name": "backend",
@@ -73,48 +74,9 @@
             "systemControls": []
         }
     ],
-    "family": "myskinbuddy-backend",
-    "executionRoleArn": "arn:aws:iam::117669335220:role/MySkinBuddyECSTaskExecutionRole",
-    "networkMode": "awsvpc",
-    "revision": 3,
-    "volumes": [],
-    "status": "ACTIVE",
-    "requiresAttributes": [
-        {
-            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
-        },
-        {
-            "name": "ecs.capability.execution-role-awslogs"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.ecr-auth"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
-        },
-        {
-            "name": "ecs.capability.execution-role-ecr-pull"
-        },
-        {
-            "name": "ecs.capability.secrets.ssm.environment-variables"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
-        },
-        {
-            "name": "ecs.capability.task-eni"
-        }
-    ],
-    "placementConstraints": [],
-    "compatibilities": [
-        "EC2",
-        "FARGATE"
-    ],
-    "requiresCompatibilities": [
-        "FARGATE"
-    ],
+    "requiresCompatibilities": ["FARGATE"],
     "cpu": "256",
     "memory": "512",
-    "registeredAt": "2025-01-02T12:01:34.456000-08:00",
-    "registeredBy": "arn:aws:iam::117669335220:user/Mayank"
+    "executionRoleArn": "arn:aws:iam::117669335220:role/MySkinBuddyECSTaskExecutionRole",
+    "volumes": []
 }
