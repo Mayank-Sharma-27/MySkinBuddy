@@ -23,4 +23,4 @@ def get_recent_chats_view():
 def register(app, options=None):
     if options is None:
         options = {}
-    app.register_blueprint(recent_chat_view, **options)    
+    app.register_blueprint(recent_chat_view, **options, url_prefix='/api')    

@@ -139,4 +139,4 @@ def register(app, options=None):
     """Register the blueprint with the app"""
     if options is None:
         options = {}
-    app.register_blueprint(auth_view, url_prefix='/auth', **options) 
+    app.register_blueprint(auth_view, url_prefix='/api/auth', **options) 

@@ -37,7 +37,7 @@ jobs:
           cd client
           echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}" > .env.production
           echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> .env.production
-          echo "NEXT_PUBLIC_API_URL=http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com" >> .env.production
+          echo "NEXT_PUBLIC_API_URL=http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com/api" >> .env.production
 
       - name: Login to Amazon ECR
         id: login-ecr

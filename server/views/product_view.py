@@ -16,4 +16,4 @@ def get_product():
 
 def register(app, options):
     # Register the blueprint with the Flask app
-    app.register_blueprint(product_view, **options)
+    app.register_blueprint(product_view, **options, url_prefix='/api')

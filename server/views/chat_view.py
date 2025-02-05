@@ -200,4 +200,4 @@ def get_total_messages(cookie_id):
 def register(app, options=None):
     if options is None:
         options = {}
-    app.register_blueprint(chat_view, **options) 
+    app.register_blueprint(chat_view, **options, url_prefix='/api') 

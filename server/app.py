@@ -20,7 +20,8 @@ CORS(app, resources={
     r"/profile": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
     r"/check-message-limit": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
     r"/chat/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/health": {"origins": ["*"]}
+    r"/health": {"origins": ["*"]},
+    r"/api/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]}
 })
 
 # Register all views/routes

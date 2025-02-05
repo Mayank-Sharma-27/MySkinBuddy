@@ -52,4 +52,4 @@ def product_suggestions_route():
 def register(app, options=None):
     if options is None:
         options = {}
-    app.register_blueprint(search_product_route, **options) 
+    app.register_blueprint(search_product_route, **options, url_prefix='/api') 
