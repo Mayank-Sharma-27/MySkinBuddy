@@ -50,7 +50,7 @@ class ProductAgent(BaseAgent):
 
         ### **Product Context:**  
         {context}  
-        = 
+        
         """
 
         human = """
@@ -125,7 +125,7 @@ class ProductAgent(BaseAgent):
             user_profile_section=user_profile_section,
             personalization_guidelines=personalization_guidelines
         )
-        
+        print("We are calling the model")
         # Generate response without streaming
         response = self.model.invoke(prompt)
         yield self.format_response(response)
