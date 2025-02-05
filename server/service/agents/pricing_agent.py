@@ -6,17 +6,7 @@ import re
 class PricingAgent(BaseAgent):
     """Agent responsible for handling pricing related queries"""
     
-    PRICING_PATTERNS = [
-        r"cost",
-        r"price",
-        r"how much",
-        r"cheaper",
-        r"worth",
-        r"deal",
-        r"buy",
-        r"expensive",
-        r"affordable"
-    ]
+
     
     def can_handle(self, question: str, context: Dict) -> bool:
         print(f"Pricing Agent checking: {question}")

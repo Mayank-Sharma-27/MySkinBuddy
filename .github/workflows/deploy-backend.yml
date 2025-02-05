@@ -37,9 +37,14 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Update task definition
+      - name: Debug: Verify task definition file
         working-directory: ./server
         run: |
+          echo "Current directory:"
+          pwd
+          echo "Contents of current directory:"
+          ls -l
+          echo "Looking for task-definition-backend.json in ./server:"
           aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE  
 
       - name: Build, tag, and push image to Amazon ECR
