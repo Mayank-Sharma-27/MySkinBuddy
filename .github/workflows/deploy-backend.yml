@@ -37,15 +37,6 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Verify task definition file
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Contents of current directory:"
-          ls -l
-          echo "Looking for task-definition-backend.json in ./server:"
-          ls -l server
-
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         working-directory: ./server
@@ -62,11 +53,13 @@ jobs:
       - name: Update task definition
         working-directory: ./server
         run: |
-          aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE --query "taskDefinition.taskDefinitionArn" --output text)
+          echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_OUTPUT
 
       - name: Force new deployment
         run: |
           aws ecs update-service --cluster $ECS_CLUSTER \
                                 --service $ECS_SERVICE \
+                                --task-definition $NEW_TASK_DEF_ARN \
                                 --force-new-deployment \
-                                --region $AWS_REGION
+                                --region $AWS_REGION \

@@ -1,8 +1,6 @@
 from typing import Dict, Generator, List
 from .base_agent import BaseAgent
 from .product_agent import ProductAgent
-from .pricing_agent import PricingAgent
-from .ingredient_agent import IngredientAgent
 from .similar_products_agent import SimilarProductsAgent
 
 class AgentCoordinator:
