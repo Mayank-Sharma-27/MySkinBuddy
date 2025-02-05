@@ -2,20 +2,9 @@ import os
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import ChatPromptTemplate
-from langchain_together.embeddings import TogetherEmbeddings
-from sklearn.metrics.pairwise import cosine_similarity
-from langchain_community.vectorstores import InMemoryVectorStore
-from langchain_openai.embeddings import OpenAIEmbeddings
-import boto3
-import json
-from langchain_core.documents import Document
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from langchain_core.runnables import RunnableParallel, RunnablePassthrough
-import time
 from pinecone import Pinecone, ServerlessSpec
 import re
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from service.embeddings import pinecone_vector_store, embeddings
+from service.embeddings import pinecone_vector_store
 load_dotenv()
         
 template = """
@@ -42,10 +31,7 @@ def find_product_with_retriever(product_name: str, top_k: int = 5):
     Returns the top_k products based on similarity scores.
     """
     try:
-        # Generate embedding for the search query
-        query_embedding = embeddings.embed_query(product_name)
         
-        # Search using the embedded query
         search_results = pinecone_vector_store.similarity_search_with_score(
             product_name,
             k=top_k,
