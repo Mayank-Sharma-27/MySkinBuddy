@@ -1,6 +1,10 @@
 from typing import Dict, Generator, List
 from .base_agent import BaseAgent
 from langchain.prompts import ChatPromptTemplate
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 class ProductAgent(BaseAgent):
     """
@@ -125,7 +129,7 @@ class ProductAgent(BaseAgent):
             user_profile_section=user_profile_section,
             personalization_guidelines=personalization_guidelines
         )
-        print("We are calling the model")
+        logger.info("We are calling the agent coordinator")
         # Generate response without streaming
         response = self.model.invoke(prompt)
         yield self.format_response(response)

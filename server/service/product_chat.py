@@ -27,8 +27,11 @@ import asyncio
 import json
 from .chat_service import ChatService
 from .context_builder import ContextBuilder
+import logging
 
 duckduckgo = DDGS(timeout=20)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -117,7 +120,7 @@ class ProductChat:
             
             # Process the question through the agent coordinator
             accumulated_response = ""
-            print("We are calling the agent coordinator")
+            logger.info("We are calling the agent coordinator")
             for chunk in self.agent_coordinator.process_question(
                 question=message,
                 context=context,
