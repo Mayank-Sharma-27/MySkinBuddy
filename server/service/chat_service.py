@@ -171,7 +171,6 @@ class ChatService:
                         Key=messages_key
                     )['Body'].read()
                 )
-                
                 # Deduplicate messages based on content and timestamp
                 seen_messages = set()
                 unique_messages = []
