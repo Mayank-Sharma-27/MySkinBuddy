@@ -15,22 +15,8 @@ import time
 from pinecone import Pinecone, ServerlessSpec
 import re
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from service.embeddings import pinecone_vector_store
+from service.embeddings import pinecone_vector_store, embeddings
 load_dotenv()
-
-api_key = os.getenv("TOGETHER_API_KEY") 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy-google")
-
-parser = StrOutputParser()
-embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
-BUCKET_NAME = "product-buddy"
-FOLDER_NAME = "products"
-BATCH_SIZE = 100
         
 template = """
 You are a skincare expert who know from the product information
@@ -114,6 +100,7 @@ def get_product_suggestions(query: str, max_suggestions: int = 5):
             brand_name = doc.metadata.get("brand", "")
             source = doc.metadata.get("source", "")
             product_id = doc.metadata.get("product_id", "")
+            image_url = doc.metadata.get("image_url", "")
             
             if not product_name:
                 continue
@@ -143,7 +130,8 @@ def get_product_suggestions(query: str, max_suggestions: int = 5):
                 "text_score": text_similarity,
                 "vector_score": score,
                 "starts_with": product_matches or brand_matches,
-                "source": source
+                "source": source,
+                "image_url": image_url
             }
             
             suggestions.append(suggestion)
@@ -164,10 +152,7 @@ def get_product_suggestions(query: str, max_suggestions: int = 5):
         # Format the response
         results = []
         for sugg in sorted_suggestions[:max_suggestions]:
-            image_url = None
-            if sugg["source"]:
-                image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{sugg['source'].replace('json', 'jpg')}"
-            
+            image_url = sugg.get("image_url", "")
             results.append({
                 "label": f"{sugg['brand']} - {sugg['product']}",
                 "value": {

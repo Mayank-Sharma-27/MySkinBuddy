@@ -1,6 +1,5 @@
 import boto3
 import os
-from typing import List, Dict, Optional
 import json
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed

@@ -8,18 +8,13 @@ import boto3
 from langchain_together.embeddings import TogetherEmbeddings
 import json
 from langchain_core.documents import Document
-from .s3_client import get_s3_client 
 import re
-load_dotenv()
 from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import hashlib
 import time
 
-api_key = os.getenv("TOGETHER_API_KEY") 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-model = ChatTogether(api_key =api_key,
-                     model= "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+load_dotenv()
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 index = pc.Index("product-buddy")
 google_index = pc.Index("product-buddy-google")
@@ -31,9 +26,13 @@ BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "products"
 BATCH_SIZE = 100
 
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small", metric="cosine")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 google_embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", metric="cosine")
-s3_client = get_s3_client()  
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+) 
 
 class VectorStoreManager:
     _instance = None
@@ -42,7 +41,7 @@ class VectorStoreManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(VectorStoreManager, cls).__new__(cls)
-            cls._vector_store = PineconeVectorStore(index=google_index, embedding=google_embeddings)
+            cls._vector_store = PineconeVectorStore(index=index, embedding=embeddings)
         return cls._instance
 
     @classmethod
@@ -105,7 +104,7 @@ def create_product_embeddings():
                     continue
                 
                 processed_documents += 1
-                if processed_documents <= 0:
+                if processed_documents <= 704:
                     continue
                 
                 try:
@@ -140,6 +139,12 @@ def create_product_embeddings():
                         similar_products = json.loads(s3_client.get_object(Bucket=BUCKET_NAME, Key=similar_key)["Body"].read().decode("utf-8"))
                     except Exception as e:
                         print(f"Error loading similar products: {e}")
+                        
+                    if pricing_data.get('retailers'):
+                        pricing_content = f"Product: {product_name} by {brand_name}. Pricing: "
+                        for retailer in pricing_data['retailers']:
+                            if retailer.get('price'):
+                                pricing_content += f"{retailer['retailer']}: ${retailer['price']}, "    
                     
                     # Create different types of chunks
                     
@@ -149,6 +154,7 @@ def create_product_embeddings():
                         f"Notable Ingredients: {', '.join(main_product.get('notable_ingredients', []))}. "
                         f"Benefits: {', '.join(b['benefit_name'] for b in main_product.get('benefits', []))}. "
                         f"Concerns: {', '.join(c['concern_name'] for c in main_product.get('concerns', []))}."
+                        f"Pricing Information: {pricing_content}"
                     )
                     
                     main_doc = Document(
@@ -163,76 +169,6 @@ def create_product_embeddings():
                         }
                     )
                     pinecone_vector_store.add_documents([main_doc])
-                    
-                    # 2. Ingredients Information (in chunks)
-                    max_ingredients_per_chunk = 10
-                    ingredients_data = main_product.get('ingredients_overview', [])
-                    
-                    for i in range(0, len(ingredients_data), max_ingredients_per_chunk):
-                        chunk = ingredients_data[i:i + max_ingredients_per_chunk]
-                        ingredients_content = ""
-                        for ing in chunk:
-                            ingredients_content += f"Ingredient: {ing['ingredient_name']}. Uses: {ing['ingredient_uses']}. "
-                            if ing.get('ingredient_information'):
-                                ingredients_content += f"Details: {ing['ingredient_information']}. "
-                        
-                        ing_doc = Document(
-                            page_content=ingredients_content,
-                            metadata={
-                                "product": product_name,
-                                "brand": brand_name,
-                                "type": "ingredients",
-                                "source": key,
-                                "product_id": product_id,
-                            }
-                        )
-                        pinecone_vector_store.add_documents([ing_doc])
-                    
-                    # 3. Pricing Information
-                    if pricing_data.get('retailers'):
-                        pricing_content = f"Product: {product_name} by {brand_name}. Pricing: "
-                        for retailer in pricing_data['retailers']:
-                            if retailer.get('price'):
-                                pricing_content += f"{retailer['retailer']}: ${retailer['price']}, "
-                        
-                        price_doc = Document(
-                            page_content=pricing_content.rstrip(', '),
-                            metadata={
-                                "product": product_name,
-                                "brand": brand_name,
-                                "type": "pricing",
-                                "source": key,
-                                "product_id": product_id,
-                            }
-                        )
-                        pinecone_vector_store.add_documents([price_doc])
-                    
-                    # 4. Similar Products Information
-                    if similar_products.get('dupes') and len(similar_products['dupes']) > 0:
-                        for dupe in similar_products['dupes']:
-                            dupe_content = (
-                                f"Product: {product_name} by {brand_name} has a dupe: {dupe.get('product_name', '')} "
-                                f"by {dupe.get('brand', '')}. Match: {dupe.get('match_percentage', '')}. "
-                                f"Attribute Match: {dupe.get('attribute_match', '')}. "
-                                f"Ingredient Match: {dupe.get('ingredient_match', '')}. "
-                            )
-                            if dupe.get('explanation'):
-                                dupe_content += f"Explanation: {' '.join(dupe['explanation'])}."
-                            
-                            dupe_doc = Document(
-                                page_content=dupe_content,
-                                metadata={
-                                    "product": product_name,
-                                    "brand": brand_name,
-                                    "type": "dupe",
-                                    "source": key,
-                                    "product_id": product_id,
-                                    "image_url": image_url,
-                                    "dupe_product": dupe.get('product_name', ''),
-                                    "dupe_brand": dupe.get('brand', '')
-                                }
-                            )
-                            pinecone_vector_store.add_documents([dupe_doc])
                     
                     print(f"Processed product {processed_documents}: {product_name}")
                     
