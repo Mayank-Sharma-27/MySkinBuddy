@@ -50,6 +50,10 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      - name: Update task definition
+        run: |
+          aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE
+
       - name: Force new deployment
         run: |
           aws ecs update-service --cluster $ECS_CLUSTER \
