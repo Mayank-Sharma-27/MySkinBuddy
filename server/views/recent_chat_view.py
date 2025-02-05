@@ -15,6 +15,7 @@ def get_recent_chats_view():
             'status': 'success',
             'chats': recent_chats
         })
+        
 
     except Exception as e:
         print(f"Error in recent chats endpoint: {str(e)}")
