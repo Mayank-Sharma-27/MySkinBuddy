@@ -37,6 +37,11 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Update task definition
+        working-directory: ./server
+        run: |
+          aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE  
+
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         working-directory: ./server
@@ -49,10 +54,6 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      - name: Update task definition
-        run: |
-          aws ecs register-task-definition --family $ECR_REPOSITORY --cli-input-json file://$TASK_DEFINITION_FILE
 
       - name: Force new deployment
         run: |
