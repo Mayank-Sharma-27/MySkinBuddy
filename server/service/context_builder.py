@@ -75,17 +75,19 @@ def get_initial_context(product_id: str):
             return context
         except s3_client.exceptions.NoSuchKey:
             print(f"🔍 No cached context found in S3 for product: {product_id}")
-            
+        
+        producut_id_int = int(product_id)
         # Get product document from Pinecone
         product_filter = {
-            "product_id": product_id,
+            "product_id": producut_id_int,
             "type": "product_overview"
         }
         
-        product_docs = pinecone_vector_store.similarity_search(
+        product_docs = pinecone_vector_store.search(
             "",  # Empty query to get exact match
             k=1,
-            filter=product_filter
+            filter=product_filter,
+            search_type="similarity"
         )
         
         if not product_docs:
