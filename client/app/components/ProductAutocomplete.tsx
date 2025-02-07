@@ -36,6 +36,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
   const router = useRouter();
   const { showLoginPrompt, checkMessageLimit, resetLoginPrompt } =
     useMessageLimit();
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -123,12 +124,39 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showDropdown) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setActiveIndex((prev) =>
+          prev < products.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (activeIndex >= 0 && products[activeIndex]) {
+          handleProductSelect(products[activeIndex]);
+        }
+        break;
+      case "Escape":
+        setShowDropdown(false);
+        setActiveIndex(-1);
+        break;
+    }
+  };
+
   return (
     <>
       <div className="relative w-full max-w-3xl mx-auto" ref={dropdownRef}>
         <form onSubmit={handleSubmit}>
           <div className="relative">
-            <div className="absolute inset-y-0 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
               <svg
                 className="h-5 w-5 text-gray-400"
                 fill="none"
@@ -148,21 +176,31 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleKeyDown}
               onFocus={() => {
                 setIsFocused(true);
                 setShowDropdown(true);
               }}
-              onBlur={() => setIsFocused(false)}
+              onBlur={() => {
+                setIsFocused(false);
+                setTimeout(() => setShowDropdown(false), 200);
+              }}
               placeholder="Search any product..."
-              className={`w-full pl-8 pr-10 py-3.5 rounded-2xl border-2 bg-white/80 backdrop-blur-sm
-                         transition-all duration-200 outline-none
-                         ${
-                           isFocused
-                             ? "border-primary-300 shadow-lg shadow-primary-100/50"
-                             : "border-gray-200 hover:border-gray-300"
-                         }
-                         placeholder:text-gray-400 placeholder:font-light
-                         text-gray-900 text-base`}
+              className="w-full pl-10 pr-10 py-4 rounded-2xl border-2 bg-white/80 
+                       backdrop-blur-sm transition-all duration-200 outline-none
+                       text-base md:text-lg
+                       shadow-sm focus:shadow-lg
+                       ${isFocused
+                         ? 'border-primary-300 shadow-primary-100/50'
+                         : 'border-gray-200 hover:border-gray-300'}
+                       placeholder:text-gray-400 placeholder:font-light
+                       text-gray-900"
+              role="combobox"
+              aria-expanded={showDropdown}
+              aria-controls="search-listbox"
+              aria-activedescendant={
+                activeIndex >= 0 ? `option-${activeIndex}` : undefined
+              }
             />
             {searchTerm && (
               <button
@@ -193,7 +231,14 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
         </form>
 
         {showDropdown && searchTerm.length > 0 && (
-          <div className="absolute z-10 left-0 right-0 mt-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-xl border border-gray-100 overflow-hidden">
+          <div
+            className="absolute z-10 left-0 right-0 mt-2 bg-white/80 backdrop-blur-sm 
+                     rounded-xl shadow-xl border border-gray-100 overflow-hidden
+                     transition-all duration-200 ease-in-out
+                     max-h-[80vh] overflow-y-auto"
+            role="listbox"
+            id="search-listbox"
+          >
             {isLoading ? (
               <div className="p-4">
                 <div className="animate-pulse flex flex-col gap-4">
@@ -206,31 +251,46 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
                 </div>
               </div>
             ) : products.length > 0 ? (
-              products.map((product) => (
+              products.map((product, index) => (
                 <div
                   key={product.product_id}
                   onClick={() => handleProductSelect(product)}
-                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-100"
+                  className={`flex items-center gap-4 p-4 cursor-pointer
+                           transition-colors duration-150 ease-in-out
+                           hover:bg-gray-50 active:bg-gray-100
+                           ${activeIndex === index ? "bg-gray-50" : ""}
+                           ${
+                             index !== products.length - 1
+                               ? "border-b border-gray-100"
+                               : ""
+                           }`}
+                  role="option"
+                  id={`option-${index}`}
+                  aria-selected={activeIndex === index}
                 >
-                  <Image
-                    src={product.image_url}
-                    alt={product.product}
-                    width={40}
-                    height={40}
-                    className="rounded-md"
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-900">
+                  <div className="flex-shrink-0 w-16 h-16 relative">
+                    <Image
+                      src={product.image_url}
+                      alt={product.product}
+                      fill
+                      className="rounded-lg object-cover"
+                      sizes="(max-width: 64px) 100vw, 64px"
+                    />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-gray-900 truncate">
                       {product.product}
                     </span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 truncate">
                       {product.brand}
                     </span>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-4 text-gray-500">No products found.</div>
+              <div className="p-6 text-center text-gray-500">
+                No products found
+              </div>
             )}
           </div>
         )}

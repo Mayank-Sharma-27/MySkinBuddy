@@ -104,7 +104,7 @@ def create_product_embeddings():
                     continue
                 
                 processed_documents += 1
-                if processed_documents <= 704:
+                if processed_documents <= 24311:
                     continue
                 
                 try:
