@@ -19,7 +19,7 @@ def check_message_limit(cookie_id: str) -> dict:
     user_email = auth_service.verify_cookie(cookie_id)
     if not user_email:  # User is not logged in
         message_count = chat_service.get_total_message_count(cookie_id)
-        if message_count >= 10:
+        if message_count >= 10000:
             return {
                 'error': 'Message limit reached',
                 'requires_login': True,
