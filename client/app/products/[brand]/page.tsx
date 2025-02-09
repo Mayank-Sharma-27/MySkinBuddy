@@ -19,6 +19,9 @@ interface BrandPageParams {
 
 const PRODUCTS_PER_PAGE = 12;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function getProductsForBrand(
   brand: string,
   page: number = 1
@@ -27,16 +30,28 @@ async function getProductsForBrand(
   totalPages: number;
 }> {
   try {
+    if (
+      !process.env.AWS_REGION ||
+      !process.env.AWS_ACCESS_KEY_ID ||
+      !process.env.AWS_SECRET_ACCESS_KEY ||
+      !process.env.AWS_BUCKET_NAME
+    ) {
+      return {
+        products: [],
+        totalPages: 0,
+      };
+    }
+
     const s3Client = new S3Client({
-      region: process.env.AWS_REGION!,
+      region: process.env.AWS_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },
     });
 
     const command = new ListObjectsV2Command({
-      Bucket: process.env.AWS_BUCKET_NAME!,
+      Bucket: process.env.AWS_BUCKET_NAME,
       Prefix: `products/${brand}/`,
       Delimiter: "/",
     });
@@ -157,9 +172,6 @@ export async function generateMetadata({
     },
   };
 }
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default async function BrandPage({
   params,
