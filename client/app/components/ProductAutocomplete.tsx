@@ -8,7 +8,7 @@ import { getCookieId } from "../utils/cookies";
 import { API_URL } from "../config";
 import { useMessageLimit } from "../contexts/MessageLimitContext";
 import dynamic from "next/dynamic";
-import { SearchResult } from "@/app/types";
+import { SearchResult } from "../types";
 
 const LoginModal = dynamic(() => import("./LoginModal"), {
   ssr: false,

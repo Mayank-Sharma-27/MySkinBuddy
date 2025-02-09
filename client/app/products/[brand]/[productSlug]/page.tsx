@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import ProductDisplay from "./ProductDisplay";
 import { notFound } from "next/navigation";
-import type { ProductData } from "@/app/types";
+import { ProductData } from "../../../types";
 
 interface ProductPageParams {
   params: {

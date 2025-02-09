@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatMessage as ChatMessageType } from "@/app/types";
+import { ChatMessage as ChatMessageType } from "../types";
 
 interface ChatMessageProps {
   message: string | React.ReactNode;
