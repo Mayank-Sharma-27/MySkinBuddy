@@ -1,12 +1,12 @@
 import { Metadata } from "next";
-import { Container } from "@/app/components/ui/Container";
-import Navbar from "@/app/components/Navbar";
-import { Footer } from "@/app/components/Footer";
+import { Container } from "../../components/ui/Container";
+import Navbar from "../../components/Navbar";
+import { Footer } from "../../components/Footer";
 import Image from "next/image";
 import Link from "next/link";
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { headers } from "next/headers";
-import type { ProductPreview } from "@/app/types";
+import type { ProductPreview } from "../../types";
 
 interface BrandPageParams {
   params: {

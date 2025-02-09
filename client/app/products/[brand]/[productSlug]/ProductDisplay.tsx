@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { Container } from "@/app/components/ui/Container";
-import Navbar from "@/app/components/Navbar";
-import { Footer } from "@/app/components/Footer";
-import { ProductData } from "@/app/types";
+import { Container } from "../../../components/ui/Container";
+import Navbar from "../../../components/Navbar";
+import { Footer } from "../../../components/Footer";
+import { ProductData } from "../../../types";
 
 interface ProductDisplayProps {
   productData: ProductData;

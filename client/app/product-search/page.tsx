@@ -1,13 +1,12 @@
-
 "use client";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-
-
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { Container } from "../components/ui/Container";
 import Navbar from "../components/Navbar";
+import { Footer } from "../components/Footer";
 import { ProductAutoComplete } from "../components/ProductAutocomplete";
 import { API_URL } from "../config";
 import Image from "next/image";

@@ -1,4 +1,3 @@
-
 "use client";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -7,6 +6,8 @@ import { ChatWindow } from "../../components/ChatWindow";
 import Navbar from "../../components/Navbar";
 import { API_URL } from "../../config";
 import { useCookie } from "../../utils/CookieProvider";
+import { Container } from "../../components/ui/Container";
+import { Footer } from "../../components/Footer";
 
 interface ChatData {
   chat_history: any[];
