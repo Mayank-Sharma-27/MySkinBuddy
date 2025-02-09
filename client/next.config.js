@@ -32,6 +32,15 @@ const nextConfig = {
   // Explicitly exclude sitemap from static generation
   excludeDefaultMomentLocales: true,
   pageExtensions: ["tsx", "ts", "jsx", "js"],
+  // Add this to skip static generation for specific paths
+  exportPathMap: async function () {
+    return {
+      "/": { page: "/" },
+      "/404": { page: "/404" },
+      // Add other routes you want to include
+      // Explicitly exclude sitemap.xml
+    };
+  },
 };
 
 module.exports = nextConfig;
