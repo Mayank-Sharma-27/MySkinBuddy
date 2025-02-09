@@ -14,7 +14,16 @@
                 }
             ],
             "essential": true,
-            "environment": [],
+            "environment": [
+                {
+                    "name": "CORS_ORIGIN",
+                    "value": "https://myglowpal.com"
+                },
+                {
+                    "name": "ALLOWED_ORIGINS",
+                    "value": "http://localhost:3000,https://myglowpal.com,https://www.myglowpal.com"
+                }
+            ],
             "mountPoints": [],
             "volumesFrom": [],
             "secrets": [

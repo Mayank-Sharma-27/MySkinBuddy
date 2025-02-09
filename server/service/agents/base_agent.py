@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Generator, List, Optional
+from typing import Dict, Generator, List, Optional, AsyncGenerator
 from langchain_community.chat_models import ChatPerplexity
-from langchain.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationChain, LLMChain
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.schema import StrOutputParser
+from langchain.schema.runnable import RunnablePassthrough
 from ..embeddings import pinecone_vector_store, embeddings
 from ..utils.response_formatter import format_agent_response
 
@@ -16,13 +21,39 @@ class BaseAgent(ABC):
     """
     
     def __init__(self):
+        # Initialize model without streaming
         self.model = ChatPerplexity(
             model="sonar-reasoning",
             temperature=0.3,
             pplx_api_key=api_key
         )
+        
+        # Initialize memory
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key="output"
+        )
+        
         self.embeddings = embeddings
         self.vector_store = pinecone_vector_store
+        
+        # Initialize retriever
+        self.retriever = self.vector_store.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 3}
+        )
+        
+    def setup_chain(self):
+        """Setup the RAG chain with memory"""
+        template = self._get_chat_template()
+        
+        # Create the chain with memory integration
+        chain = RunnablePassthrough.assign(
+            chat_history=lambda x: self.memory.load_memory_variables({})["chat_history"]
+        ) | template | self.model
+        
+        return chain
         
     @abstractmethod
     def can_handle(self, question: str, context: Dict) -> bool:
@@ -47,26 +78,63 @@ class BaseAgent(ABC):
         """
         pass
         
-    @abstractmethod
+    async def aprocess(
+        self,
+        question: str,
+        context: Dict,
+        chat_history: Optional[List[Dict]] = None
+    ) -> AsyncGenerator[str, None]:
+        """Async process method"""
+        chain = self.setup_chain()
+        
+        # Prepare input with context
+        chain_input = {
+            "question": question,
+            "context": context.get("product_info", ""),
+            "user_profile_section": context.get("user_profile_section", "")
+        }
+        
+        # Get response
+        response = chain.invoke(chain_input)
+        formatted_response = self.format_response(response)
+        
+        # Save to memory
+        self.memory.save_context(
+            {"input": question},
+            {"output": formatted_response}
+        )
+        
+        yield formatted_response
+        
     def process(
         self,
         question: str,
         context: Dict,
-        chat_history: List[Dict]
+        chat_history: Optional[List[Dict]] = None
     ) -> Generator[str, None, None]:
-        """
-        Process the question and generate a response
+        """Synchronous process method"""
+        chain = self.setup_chain()
         
-        Args:
-            question: The user's question
-            context: The current conversation context
-            chat_history: The conversation history
-            
-        Returns:
-            Generator[str, None, None]: Stream of response chunks
-        """
-        pass
+        # Prepare input with context
+        chain_input = {
+            "question": question,
+            "context": context.get("product_info", ""),
+            "user_profile_section": context.get("user_profile_section", "")
+        }
         
+        # Run chain and get response
+        response = chain.invoke(chain_input)
+        formatted_response = self.format_response(response)
+        
+        # Save to memory
+        self.memory.save_context(
+            {"input": question},
+            {"output": formatted_response}
+        )
+        
+        yield formatted_response
+        
+    @abstractmethod
     def _get_chat_template(self) -> ChatPromptTemplate:
         """
         Get the chat prompt template for this agent
@@ -99,3 +167,12 @@ class BaseAgent(ABC):
         """Format the model's response using the common formatter"""
         formatted = format_agent_response(response)
         return formatted["content"] 
+
+    def _combine_input(self, question: str, context: Dict) -> Dict:
+        """Combine inputs for the chain"""
+        return {
+            "question": question,
+            "context": context.get("product_info", ""),
+            "user_profile_section": context.get("user_profile_section", ""),
+            "chat_history": self.memory.load_memory_variables({})["chat_history"]
+        } 

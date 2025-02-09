@@ -2,6 +2,10 @@ import { Container } from "../components/ui/Container";
 import Navbar from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -33,7 +37,7 @@ export default function PrivacyPolicyPage() {
                         Introduction
                       </h2>
                       <p className="text-gray-600">
-                        MySkinBuddy ("we," "our," or "us") is committed to
+                        MyGlowPal ("we," "our," or "us") is committed to
                         protecting your privacy. This Privacy Policy explains
                         how we collect, use, disclose, and safeguard your
                         information when you use our website and services.
@@ -149,7 +153,7 @@ export default function PrivacyPolicyPage() {
                       </h2>
                       <p className="text-gray-600">
                         If you have questions about this Privacy Policy, please
-                        contact us at: privacy@myskinbuddy.com
+                        contact us at: privacy@myglowpal.com
                       </p>
                     </section>
                   </div>

@@ -56,7 +56,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center space-x-2">
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                MySkinBuddy
+                MyGlowPal
               </h1>
             </Link>
 

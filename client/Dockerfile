@@ -19,6 +19,7 @@ COPY . .
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV=production
+ENV NEXT_SKIP_STATIC_GENERATION=true
 RUN npm run build
 
 # Production image

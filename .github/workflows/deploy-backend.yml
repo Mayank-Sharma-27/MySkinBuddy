@@ -14,6 +14,8 @@ env:
   ECS_SERVICE: myskinbuddy-backend-8080
   CONTAINER_NAME: backend
   TASK_DEFINITION_FILE: task-definition-backend.json
+  CORS_ORIGIN: "https://myglowpal.com"
+  ALLOWED_ORIGINS: "http://localhost:3000,https://myglowpal.com,https://www.myglowpal.com"
 
 jobs:
   deploy:

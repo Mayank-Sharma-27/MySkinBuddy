@@ -2,6 +2,10 @@ import { Container } from "../components/ui/Container";
 import Navbar from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function AboutPage() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -19,14 +23,14 @@ export default function AboutPage() {
             <div className="py-16 px-4 sm:px-6 lg:px-8">
               <div className="max-w-3xl mx-auto">
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent mb-8">
-                  About MySkinBuddy
+                  About MyGlowPal
                 </h1>
 
                 <div className="prose prose-lg">
                   <p className="text-xl text-gray-600 mb-8">
-                    MySkinBuddy is your AI-powered skincare companion, designed
-                    to help you navigate the complex world of skincare products
-                    with confidence and ease.
+                    MyGlowPal is your AI-powered beauty and wellness companion,
+                    designed to help you navigate the complex world of skincare
+                    products with confidence and ease.
                   </p>
 
                   <div className="bg-white/60 backdrop-blur-sm rounded-xl p-8 shadow-sm border border-gray-200/50 mb-8">

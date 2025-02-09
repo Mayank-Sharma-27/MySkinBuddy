@@ -9,20 +9,31 @@ import datetime
 # Create the Flask application instance
 app = Flask(__name__)
 
-# Configure CORS globally with all necessary settings
+# Update CORS configuration with HTTPS origins
+allowed_origins = [
+    "http://localhost:3000",                    # Local development
+    "https://myglowpal.com",                    # Production HTTPS
+    "https://www.myglowpal.com",                # Production HTTPS with www
+    "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"  # ALB direct access
+]
+
+# Configure CORS with updated origins
 CORS(app, resources={  
-    r"/recent-chats": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/search-products": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/start-chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/product-suggestions": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/chat": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/auth/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/profile": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/check-message-limit": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/chat/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]},
-    r"/health": {"origins": ["*"]},
-    r"/api/*": {"origins": ["http://localhost:3000", "https://myskinbuddy.com", "http://myskinbuddy-alb-1865825031.us-east-1.elb.amazonaws.com"]}
-})
+    r"/recent-chats": {"origins": allowed_origins},
+    r"/search-products": {"origins": allowed_origins},
+    r"/start-chat": {"origins": allowed_origins},
+    r"/product-suggestions": {"origins": allowed_origins},
+    r"/chat": {"origins": allowed_origins},
+    r"/auth/*": {"origins": allowed_origins},
+    r"/profile": {"origins": allowed_origins},
+    r"/check-message-limit": {"origins": allowed_origins},
+    r"/chat/*": {"origins": allowed_origins},
+    r"/health": {"origins": "*"},  # Health check can remain open
+    r"/api/*": {"origins": allowed_origins}
+}, 
+supports_credentials=True,  # Add this if you're using cookies
+methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly specify allowed methods
+allow_headers=["Content-Type", "Authorization", "X-Cookie-ID"])  # Explicitly specify allowed headers
 
 # Register all views/routes
 register_views(app)

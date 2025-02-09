@@ -1,0 +1,4 @@
+# Add this step to your deployment workflow
+- name: Validate Structured Data
+  run: |
+    npx structured-data-testing-tool test https://myglowpal.com/products/**/*

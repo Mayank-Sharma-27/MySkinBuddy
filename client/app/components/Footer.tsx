@@ -12,7 +12,7 @@ export function Footer() {
             {/* Brand */}
             <div className="space-y-4">
               <h3 className="text-lg font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                MySkinBuddy
+                MyGlowPal
               </h3>
               <p className="text-sm text-gray-500">
                 Your AI-powered skincare companion helping you make informed
@@ -87,7 +87,7 @@ export function Footer() {
               <h4 className="font-semibold text-gray-900 mb-4">Connect</h4>
               <div className="flex space-x-4">
                 <a
-                  href="https://twitter.com/myskinbuddy"
+                  href="https://twitter.com/myglowpal"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-primary-600 transition-colors"
@@ -101,7 +101,7 @@ export function Footer() {
                   </svg>
                 </a>
                 <a
-                  href="https://instagram.com/myskinbuddy"
+                  href="https://instagram.com/myglowpal"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-primary-600 transition-colors"
@@ -119,7 +119,7 @@ export function Footer() {
                   </svg>
                 </a>
                 <a
-                  href="https://linkedin.com/company/myskinbuddy"
+                  href="https://linkedin.com/company/myglowpal"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-primary-600 transition-colors"
@@ -139,7 +139,7 @@ export function Footer() {
           {/* Bottom */}
           <div className="pt-8 mt-8 border-t border-gray-200">
             <p className="text-sm text-center text-gray-400">
-              © {new Date().getFullYear()} MySkinBuddy. All rights reserved.
+              © {new Date().getFullYear()} MyGlowPal. All rights reserved.
             </p>
           </div>
         </div>

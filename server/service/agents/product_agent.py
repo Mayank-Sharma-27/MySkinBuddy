@@ -1,6 +1,6 @@
-from typing import Dict, Generator, List
+from typing import Dict, Generator, List, Optional
 from .base_agent import BaseAgent
-from langchain.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 import logging
 
 logger = logging.getLogger()
@@ -21,115 +21,93 @@ class ProductAgent(BaseAgent):
         
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
-            You are a friendly and knowledgeable skincare expert who gives **personalized, evidence-based** advice—just like a trusted friend who knows a lot about skincare!  
+            You are a skincare expert providing accurate product information. Your primary goal is to answer specific questions using only the provided product details.
 
-        ### **Your Role:**  
-        1. **Understand the user’s question** and respond in a way that feels **warm, engaging, and tailored**.  
-        2. **Consider the user's skin type, concerns, and needs** (**{user_profile_section}**) to make your advice feel **personal and relevant**.  
-        3. **Make responses feel natural and conversational**, while keeping them informative and science-backed.  
+            PRODUCT INFORMATION:
+            {context}
 
-        ### **Response Style:**  
-        - **Friendly & supportive**—avoid sounding robotic or overly formal.  
-        - **Conversational tone**—use words like *"I totally get it!"* or *"That’s a great question!"* when appropriate.  
-        - **Encourage and reassure**—make the user feel heard and understood. 
-        - If relevant, follow with key points using this format:
-        -  **Key Point Label**: Description with important terms in **bold**
-        - If needed, end with a short conclusion or recommendation
-        - Never use markdown headings (###) or bullet points (-)
-        - Use line breaks between sections for readability 
+            {user_profile_section}
 
-        ### **Response Structure:**  
-        1. **Warm & Direct Answer** (1-2 sentences, like you're chatting with a friend).  
-        2. **Casual but Clear Explanation** (if needed, with a mix of scientific insight and friendly advice).  
-        3. **Helpful Suggestions or Next Steps** (if relevant, with encouragement).  
+            GUIDELINES:
+            1. Focus on answering the specific question asked
+            2. Only use information from the provided product details
+            3. Highlight any relevant safety considerations
+            4. Explain ingredients when relevant to the question
+            5. If information is insufficient, clearly state this limitation
+            6. Keep responses concise and focused
 
-        ### **Guidelines:**  
-        - Base responses on **scientific evidence** but make them **easy to understand**—no jargon!  
-        - Reference **specific ingredients and products** in a way that feels natural.  
-        - Keep it **real and honest**—if something won’t work, say so gently.  
-        - If information is **limited or unavailable**, be upfront but helpful.  
-        - Suggest **simple, actionable steps** to improve the user’s skincare routine.  
-        - If applicable, mention **product application tips, side effects, or common mistakes**.  
-        - Make the user feel **empowered and confident** in their skincare choices.  
-
-        ### **Product Context:**  
-        {context}  
-        
+            Remember:
+            - Only discuss information present in the product details
+            - Do not make assumptions about effectiveness
+            - If user profile is available, consider their specific needs
+            - No general skincare advice unless directly related to the product question.
         """
 
-        human = """
-        User Question: {question}
-        """
-        
         return ChatPromptTemplate.from_messages([
             ("system", system),
-            ("human", human)
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{question}")
         ])
         
     def process(
         self,
         question: str,
         context: Dict,
-        chat_history: List[Dict]
+        chat_history: Optional[List[Dict]] = None
     ) -> Generator[str, None, None]:
-        # Get product context
+        # Process product context
         product_doc = context.get("product", {})
-        product_info = product_doc.get("page_content", "")      # Get product metadata
+        context["product_info"] = self._format_product_info(product_doc)
+        context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
+        
+        # Use the chain
+        logger.info("Calling agent with chain")
+        chain = self.setup_chain()
+        chain_input = self._combine_input(question, context)
+        response = chain.invoke(chain_input)
+        
+        formatted_response = self.format_response(response)
+        
+        # Save to memory with error handling
+        try:
+            self.memory.save_context(
+                {"input": question}, 
+                {"output": formatted_response}
+            )
+            print("Saving to memory done")
+        except Exception as e:
+            logger.error(f"Error saving to memory: {str(e)}")
+            print(f"Error saving to memory: {str(e)}")
+        
+        yield formatted_response
+        
+    def _format_product_info(self, product_doc: Dict) -> str:
+        """Format product information for the prompt"""
+        product_info = product_doc.get("page_content", "")
         product_name = product_doc.get("metadata", {}).get("product", "")
         brand_name = product_doc.get("metadata", {}).get("brand", "")
-        # Extract ingredients from product info
-        ingredients_start = product_info.find("Ingredients :") + len("Ingredients :")
-        product_details = {
-            "brand": brand_name,
-            "product": product_name,
-            "info": product_info
-        }
-        ingredients_list = product_info[ingredients_start:].strip()
         
-        # Build context string
-        context_str = (
-            f"PRODUCT INFO:\n{product_details}\n\n"
-            f"INGREDIENTS:\n{ingredients_list}\n\n"
-        )
-        # Get user information
-        user_info = context.get("user_information", {})
-        user_skin_type = user_info.get("skin_type", "")
-        user_skin_issues = ", ".join(user_info.get("skin_issues", []))
-        user_additional_info = user_info.get("additional_info", "")
-        user_location = user_info.get("location", "")
+        return f"""
+        Brand: {brand_name}
+        Product: {product_name}
+        Details: {product_info}
+        """
         
-        # Prepare user profile section based on available information
-        if any([user_skin_type, user_skin_issues, user_additional_info, user_location]):
-            user_profile_section = """
-            User Profile Information:
-            {}{}{}{}
-            """.format(
-                f"- Skin Type: {user_skin_type}\n" if user_skin_type else "",
-                f"- Skin Issues: {user_skin_issues}\n" if user_skin_issues else "",
-                f"- Additional Information: {user_additional_info}\n" if user_additional_info else "",
-                f"- Location: {user_location}\n" if user_location else ""
-            ).strip()
+    def _format_user_profile(self, user_info: Dict) -> str:
+        """Format user profile information if available"""
+        if not user_info:
+            return ""
             
-            personalization_guidelines = """
-            - Provide personalized advice considering the user's profile information
-            - When relevant, explain why the product may or may not be suitable for the user's skin type and issues
-            - If the user has specific skin issues, address how the product might help or potentially aggravate them
-            """
-        else:
-            user_profile_section = ""
-            personalization_guidelines = ""
-        
-        # Format prompt
-        prompt = self._get_chat_template().format(
-            context=context_str,
-            question=question,
-            chat_history=chat_history,
-            product_name=product_name,
-            brand_name=brand_name,
-            user_profile_section=user_profile_section,
-            personalization_guidelines=personalization_guidelines
-        )
-        logger.info("We are calling the agent coordinator")
-        # Generate response without streaming
-        response = self.model.invoke(prompt)
-        yield self.format_response(response)
+        profile_parts = []
+        if skin_type := user_info.get("skin_type"):
+            profile_parts.append(f"Skin Type: {skin_type}")
+        if skin_issues := user_info.get("skin_issues"):
+            profile_parts.append(f"Skin Issues: {', '.join(skin_issues)}")
+        if location := user_info.get("location"):
+            profile_parts.append(f"Location: {location}")
+        if additional_info := user_info.get("additional_info"):
+            profile_parts.append(f"Additional Information: {additional_info}")
+            
+        if profile_parts:
+            return "USER PROFILE:\n" + "\n".join(profile_parts)
+        return ""

@@ -3,6 +3,10 @@ import { HowItWorks } from "../components/HowItWorks";
 import Navbar from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function HowItWorksPage() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -24,7 +28,7 @@ export default function HowItWorksPage() {
               {/* Detailed steps section */}
               <div className="max-w-3xl mx-auto mt-24">
                 <h1 className="text-4xl font-bold text-gray-900 mb-8">
-                  How MySkinBuddy Works
+                  How MyGlowPal Works
                 </h1>
 
                 <div className="space-y-16">
@@ -100,7 +104,7 @@ export default function HowItWorksPage() {
                       <p className="text-gray-600">
                         Use our insights to make confident decisions about your
                         skincare routine. Whether you're building a new routine
-                        or optimizing your current one, MySkinBuddy helps you
+                        or optimizing your current one, MyGlowPal helps you
                         choose products that work best for your skin.
                       </p>
                     </div>

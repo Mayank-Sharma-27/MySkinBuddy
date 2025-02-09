@@ -1,0 +1,61 @@
+{
+  "family": "myskinbuddy-frontend",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "frontend",
+      "image": "117669335220.dkr.ecr.us-east-1.amazonaws.com/myskinbuddy-frontend:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NEXT_PUBLIC_API_URL",
+          "value": "https://myglowpal.com/api"
+        },
+        {
+          "name": "NEXT_PUBLIC_SITE_URL",
+          "value": "https://myglowpal.com"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+          "valueFrom": "/myskinbuddy/NEXT_PUBLIC_GOOGLE_CLIENT_ID"
+        },
+        {
+          "name": "GOOGLE_CLIENT_SECRET",
+          "valueFrom": "/myskinbuddy/GOOGLE_CLIENT_SECRET"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "valueFrom": "/myskinbuddy/AWS_ACCESS_KEY_ID"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "valueFrom": "/myskinbuddy/AWS_SECRET_ACCESS_KEY"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/myskinbuddy",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "frontend"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::117669335220:role/MySkinBuddyECSTaskExecutionRole"
+} 

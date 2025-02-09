@@ -7,24 +7,13 @@ import { useCookie } from "../utils/CookieProvider";
 import { useAuth } from "../contexts/AuthContext";
 import { API_URL } from "../config";
 import dynamic from "next/dynamic";
+import { SmartLoadingIndicator } from "./SmartLoadingIndicator";
 
 const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
 
-function LoadingDots() {
-  return (
-    <div className="flex items-center h-4">
-      <div className="flex space-x-1">
-        <div className="loading-dot"></div>
-        <div className="loading-dot"></div>
-        <div className="loading-dot"></div>
-      </div>
-    </div>
-  );
-}
-
 interface Message {
   id: string;
-  content: string;
+  content: string | React.ReactNode;
   isUser: boolean;
   timestamp: string;
   isLoading?: boolean;
@@ -214,7 +203,9 @@ export function ChatWindow({
         {messages.map((message) => (
           <ChatMessage
             key={message.id}
-            message={message.content}
+            message={
+              message.isLoading ? <SmartLoadingIndicator /> : message.content
+            }
             isUser={message.isUser}
             timestamp={message.timestamp}
             isLoading={message.isLoading || false}

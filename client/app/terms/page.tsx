@@ -2,6 +2,10 @@ import { Container } from "../components/ui/Container";
 import Navbar from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function TermsPage() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -33,7 +37,7 @@ export default function TermsPage() {
                         1. Agreement to Terms
                       </h2>
                       <p className="text-gray-600">
-                        By accessing or using MySkinBuddy, you agree to be bound
+                        By accessing or using MyGlowPal, you agree to be bound
                         by these Terms of Service and all applicable laws and
                         regulations. If you do not agree with any of these
                         terms, you are prohibited from using or accessing this
@@ -48,7 +52,7 @@ export default function TermsPage() {
                         2. Use License
                       </h2>
                       <p className="text-gray-600 mb-4">
-                        Permission is granted to temporarily access MySkinBuddy
+                        Permission is granted to temporarily access MyGlowPal
                         for personal, non-commercial use. This is the grant of a
                         license, not a transfer of title, and under this license
                         you may not:
@@ -58,7 +62,7 @@ export default function TermsPage() {
                         <li>Use the materials for any commercial purpose</li>
                         <li>
                           Attempt to reverse engineer any software contained on
-                          MySkinBuddy
+                          MyGlowPal
                         </li>
                         <li>
                           Remove any copyright or other proprietary notations
@@ -74,8 +78,8 @@ export default function TermsPage() {
                         3. Disclaimer
                       </h2>
                       <p className="text-gray-600">
-                        The materials on MySkinBuddy are provided on an 'as is'
-                        basis. MySkinBuddy makes no warranties, expressed or
+                        The materials on MyGlowPal are provided on an 'as is'
+                        basis. MyGlowPal makes no warranties, expressed or
                         implied, and hereby disclaims and negates all other
                         warranties including, without limitation, implied
                         warranties or conditions of merchantability, fitness for
@@ -91,13 +95,13 @@ export default function TermsPage() {
                         4. Limitations
                       </h2>
                       <p className="text-gray-600">
-                        In no event shall MySkinBuddy or its suppliers be liable
+                        In no event shall MyGlowPal or its suppliers be liable
                         for any damages (including, without limitation, damages
                         for loss of data or profit, or due to business
                         interruption) arising out of the use or inability to use
-                        MySkinBuddy, even if MySkinBuddy or a MySkinBuddy
-                        authorized representative has been notified orally or in
-                        writing of the possibility of such damage.
+                        MyGlowPal, even if MyGlowPal or a MyGlowPal authorized
+                        representative has been notified orally or in writing of
+                        the possibility of such damage.
                       </p>
                     </section>
                   </div>
@@ -108,7 +112,7 @@ export default function TermsPage() {
                         5. Medical Disclaimer
                       </h2>
                       <p className="text-gray-600">
-                        MySkinBuddy provides general information about skincare
+                        MyGlowPal provides general information about skincare
                         products and ingredients. This information is not
                         intended to be a substitute for professional medical
                         advice, diagnosis, or treatment. Always seek the advice
@@ -127,7 +131,7 @@ export default function TermsPage() {
                       <p className="text-gray-600">
                         Users may submit questions, comments, and other content.
                         You are solely responsible for any content you submit,
-                        and you grant MySkinBuddy a non-exclusive, royalty-free
+                        and you grant MyGlowPal a non-exclusive, royalty-free
                         license to use, modify, and distribute such content.
                       </p>
                     </section>
@@ -139,10 +143,10 @@ export default function TermsPage() {
                         7. Modifications
                       </h2>
                       <p className="text-gray-600">
-                        MySkinBuddy may revise these terms of service at any
-                        time without notice. By using this website you are
-                        agreeing to be bound by the then current version of
-                        these terms of service.
+                        MyGlowPal may revise these terms of service at any time
+                        without notice. By using this website you are agreeing
+                        to be bound by the then current version of these terms
+                        of service.
                       </p>
                     </section>
                   </div>
@@ -168,7 +172,7 @@ export default function TermsPage() {
                       </h2>
                       <p className="text-gray-600">
                         If you have questions about these Terms of Service,
-                        please contact us at: terms@myskinbuddy.com
+                        please contact us at: terms@myglowpal.com
                       </p>
                     </section>
                   </div>

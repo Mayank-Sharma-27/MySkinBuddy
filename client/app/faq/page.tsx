@@ -2,17 +2,21 @@ import { Container } from "../components/ui/Container";
 import Navbar from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function FAQPage() {
   const faqs = [
     {
-      question: "What is MySkinBuddy?",
+      question: "What is MyGlowPal?",
       answer:
-        "MySkinBuddy is an AI-powered skincare assistant that helps you understand and choose skincare products. It provides personalized recommendations and answers questions about ingredients, product compatibility, and skincare routines.",
+        "MyGlowPal is an AI-powered beauty and wellness assistant that helps you understand and choose skincare products. It provides personalized recommendations and answers questions about ingredients, product compatibility, and skincare routines.",
     },
     {
-      question: "Is MySkinBuddy free to use?",
+      question: "Is MyGlowPal free to use?",
       answer:
-        "Yes, MySkinBuddy's core features are free to use. You can search for products and get basic information without any cost.",
+        "Yes, MyGlowPal's core features are free to use. You can search for products and get basic information without any cost.",
     },
     {
       question: "How accurate is the AI's advice?",
@@ -25,7 +29,7 @@ export default function FAQPage() {
         "Yes, our recommendations are unbiased and based purely on product ingredients, scientific research, and user experiences. We don't accept payments for recommendations or promote specific brands.",
     },
     {
-      question: "How do I start using MySkinBuddy?",
+      question: "How do I start using MyGlowPal?",
       answer:
         "Simply visit our product search page, look up a skincare product you're interested in, and start asking questions. Our AI will provide detailed information and insights about the product.",
     },
@@ -40,7 +44,7 @@ export default function FAQPage() {
         "We regularly update our database to include new products and the latest ingredient research. Our team works continuously to ensure the information is current and accurate.",
     },
     {
-      question: "Can MySkinBuddy help with specific skin concerns?",
+      question: "Can MyGlowPal help with specific skin concerns?",
       answer:
         "Yes, you can ask about products suitable for specific skin concerns like acne, aging, sensitivity, or dryness. However, for medical conditions, always consult with a healthcare professional.",
     },

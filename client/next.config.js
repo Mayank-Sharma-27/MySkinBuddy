@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  // Enable if you need to access environment variables at build time
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
@@ -16,10 +15,20 @@ const nextConfig = {
     ],
   },
   swcMinify: true,
+  // Disable static generation
+  staticPageGenerationTimeout: 0,
   experimental: {
-    // Disable SWC loader to use platform-specific binaries
-    swcLoader: false,
+    serverComponentsExternalPackages: [],
   },
+  // Disable static optimization
+  compiler: {
+    removeConsole: false,
+  },
+  // Cache settings
+  generateEtags: false,
+  compress: true,
+  poweredByHeader: false,
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;

@@ -1,5 +1,7 @@
-"use client";
 
+"use client";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { useEffect, useState } from "react";
 import { ChatWindow } from "../../components/ChatWindow";
 import Navbar from "../../components/Navbar";
