@@ -10,27 +10,13 @@ const nextConfig = {
 
   // Configure image optimization and allowed domains for next/image
   images: {
-    unoptimized: true, // Add this to skip image optimization
+    domains: ["product-buddy.s3.amazonaws.com"],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.s3.amazonaws.com",
-        pathname: "/**",
-      },
       {
         protocol: "https",
         hostname: "product-buddy.s3.amazonaws.com",
         pathname: "/products/**",
       },
-      {
-        protocol: "https",
-        hostname: "*.s3.us-east-1.amazonaws.com",
-        pathname: "/**",
-      },
-    ],
-    domains: [
-      "product-buddy.s3.amazonaws.com",
-      "product-buddy.s3.us-east-1.amazonaws.com",
     ],
   },
 
@@ -59,20 +45,6 @@ const nextConfig = {
   // File configuration
   excludeDefaultMomentLocales: true, // Reduce bundle size
   pageExtensions: ["tsx", "ts", "jsx", "js"], // Valid page extensions
-
-  // Disable static optimization completely
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
-  distDir: ".next",
-  generateBuildId: async () => "build",
-
-  // Add this to ensure proper CSS loading
-  webpack: (config) => {
-    config.resolve.fallback = { fs: false, path: false };
-    return config;
-  },
 };
 
 module.exports = nextConfig;
