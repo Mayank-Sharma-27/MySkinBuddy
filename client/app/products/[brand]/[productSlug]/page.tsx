@@ -113,10 +113,6 @@ async function getProductData(
   productSlug: string
 ): Promise<ProductData | null> {
   try {
-    if (!process.env.NEXT_PUBLIC_API_URL) {
-      return null;
-    }
-
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/products/${brand}/${productSlug}`
     );
