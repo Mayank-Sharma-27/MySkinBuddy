@@ -29,6 +29,32 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  // Explicitly exclude sitemap from static generation
+  excludeDefaultMomentLocales: true,
+  pageExtensions: ["tsx", "ts", "jsx", "js"],
+  async headers() {
+    return [
+      {
+        source: "/sitemap.xml",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "text/plain",
+          },
+        ],
+      },
+    ];
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/sitemap.xml",
+          destination: "/api/404",
+        },
+      ],
+    };
+  },
 };
 
 module.exports = nextConfig;
