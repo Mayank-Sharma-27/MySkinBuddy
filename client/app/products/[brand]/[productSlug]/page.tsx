@@ -105,11 +105,18 @@ function generateBreadcrumbStructuredData(brand: string, productName: string) {
   };
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function getProductData(
   brand: string,
   productSlug: string
 ): Promise<ProductData | null> {
   try {
+    if (!process.env.NEXT_PUBLIC_API_URL) {
+      return null;
+    }
+
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/products/${brand}/${productSlug}`
     );
@@ -181,9 +188,6 @@ export async function generateMetadata({
     },
   };
 }
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default async function ProductPage({
   params,

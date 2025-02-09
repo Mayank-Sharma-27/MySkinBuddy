@@ -29,6 +29,9 @@ const nextConfig = {
   // Configure experimental features
   experimental: {
     serverComponentsExternalPackages: [],
+    optimizeFonts: false,
+    optimizeImages: false,
+    workerThreads: false,
   },
 
   // Compiler options
