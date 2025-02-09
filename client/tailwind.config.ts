@@ -6,6 +6,43 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    "bg-gray-50",
+    "text-gray-500",
+    "text-gray-900",
+    "border-gray-200",
+    "border-gray-300",
+    "ring-primary-500",
+    "border-primary-500",
+    {
+      pattern: /^(bg|text|border|ring)-primary-\d00/,
+    },
+    {
+      pattern: /^(bg|text|border|ring)-gray-\d00/,
+    },
+    "flex",
+    "flex-col",
+    "flex-1",
+    "overflow-y-auto",
+    "p-4",
+    "bg-white",
+    "border-t",
+    "gap-4",
+    "px-4",
+    "py-3",
+    "rounded-lg",
+    "border",
+    "focus:ring-2",
+    "focus:ring-primary-500/50",
+    "focus:border-primary-500",
+    "transition-colors",
+    {
+      pattern: /^(p|px|py|m|mx|my)-\d+$/,
+    },
+    {
+      pattern: /^(flex|grid|gap)-\d+$/,
+    },
+  ],
   theme: {
     extend: {
       backgroundImage: {
