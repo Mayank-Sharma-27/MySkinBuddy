@@ -9,6 +9,5 @@ export default function robots() {
         disallow: ["/api/", "/private/", "/admin/"],
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }
