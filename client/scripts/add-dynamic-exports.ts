@@ -30,7 +30,7 @@ function findPageFiles(dir: string): string[] {
   return files;
 }
 
-function addDynamicExports(filePath: string) {
+export function addDynamicExports(filePath: string) {
   let content = fs.readFileSync(filePath, "utf8");
 
   // Skip if already has dynamic exports
