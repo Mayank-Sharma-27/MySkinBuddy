@@ -1,9 +1,10 @@
 "use client";
 
 import { ChatMessage as ChatMessageType } from "../types";
+import React from "react";
 
 interface ChatMessageProps {
-  message: string;
+  message: string | React.ReactNode;
   isUser: boolean;
   timestamp: string;
   isLoading?: boolean;
@@ -42,10 +43,20 @@ export function ChatMessage({
   // If message is empty and not loading, don't render anything
   if (!message && !isLoading) return null;
 
-  const formatMessage = (text: string) => {
+  const formatMessage = (text: string | React.ReactNode) => {
+    // If message is React component, return it directly
+    if (React.isValidElement(text)) {
+      return text;
+    }
+
     // If message is empty or loading, return loading dots
     if (!text || isLoading) {
       return <LoadingDots />;
+    }
+
+    // Handle string messages
+    if (typeof text !== "string") {
+      return text;
     }
 
     // Remove extra spacing and dashes
