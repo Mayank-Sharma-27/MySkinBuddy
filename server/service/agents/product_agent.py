@@ -29,7 +29,7 @@ class ProductAgent(BaseAgent):
             {user_profile_section}
 
             GUIDELINES:
-            1. Focus on answering the specific question asked
+            1. Focus on answering the specific question asked and only respond to product related questions or skincare related questions
             2. Only use information from the provided product details
             3. Highlight any relevant safety considerations
             4. Explain ingredients when relevant to the question
