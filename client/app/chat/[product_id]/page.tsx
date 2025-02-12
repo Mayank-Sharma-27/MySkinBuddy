@@ -254,6 +254,18 @@ export default function ChatPage({ params }: PageProps) {
     <div className="min-h-screen bg-[#faf4f4]">
       <Navbar />
       <div className="h-[calc(100vh-64px)]">
+        {chatData.image_url && chatData.chat_history.length === 0 && (
+          <div className="flex justify-center p-4 max-h-[300px] overflow-hidden">
+            <img
+              src={chatData.image_url}
+              alt={chatData.product_name}
+              className="object-contain max-h-full rounded-lg shadow-md"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          </div>
+        )}
         <ChatWindow
           productId={product_id}
           chatData={chatData}
