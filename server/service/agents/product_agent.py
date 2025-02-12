@@ -2,6 +2,9 @@ from typing import Dict, Generator, List, Optional
 from .base_agent import BaseAgent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 import logging
+import re
+import json
+from ..utils.response_formatter import ResponseFormatter
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -54,7 +57,7 @@ class ProductAgent(BaseAgent):
         question: str,
         context: Dict,
         chat_history: Optional[List[Dict]] = None
-    ) -> Generator[str, None, None]:
+    ) -> Generator[Dict, None, None]:
         # Process product context
         product_doc = context.get("product", {})
         context["product_info"] = self._format_product_info(product_doc)
@@ -64,22 +67,51 @@ class ProductAgent(BaseAgent):
         logger.info("Calling agent with chain")
         chain = self.setup_chain()
         chain_input = self._combine_input(question, context)
-        response = chain.invoke(chain_input)
         
-        formatted_response = self.format_response(response)
+        # Track full response and citations
+        full_response = ""
+        citations = []
         
-        # Save to memory with error handling
+        # Stream the content first
+        for chunk in chain.stream(chain_input):
+            if hasattr(chunk, 'content'):
+                content = chunk.content
+                full_response += content
+                
+                # Collect citations from chunk
+                chunk_citations = chunk.additional_kwargs.get('citations', [])
+                if chunk_citations:
+                    citations.extend(chunk_citations)
+                
+                if content.strip():
+                    yield ResponseFormatter.format_chunk(content)
+        
+        # After content is done, send citations
+        if citations:
+            yield ResponseFormatter.format_citation('\n\n---\n\nTo learn more, you can refer to these sources:\n')
+            
+            for i, url in enumerate(citations, 1):
+                domain = re.search(r'https?://(?:www\.)?([^/]+)', url)
+                if domain:
+                    site_name = domain.group(1).replace('.com', '').replace('.org', '')
+                    site_name = ' '.join(word.capitalize() for word in site_name.split('.'))
+                    yield ResponseFormatter.format_citation(
+                        f'\n{i}. {site_name} - [Read more]({url})'
+                    )
+                else:
+                    yield ResponseFormatter.format_citation(
+                        f'\n{i}. [Source {i}]({url})'
+                    )
+        
+        # Save to memory
         try:
             self.memory.save_context(
                 {"input": question}, 
-                {"output": formatted_response}
+                {"output": full_response}
             )
-            print("Saving to memory done")
+            logger.info("Saving to memory done")
         except Exception as e:
             logger.error(f"Error saving to memory: {str(e)}")
-            print(f"Error saving to memory: {str(e)}")
-        
-        yield formatted_response
         
     def _format_product_info(self, product_doc: Dict) -> str:
         """Format product information for the prompt"""

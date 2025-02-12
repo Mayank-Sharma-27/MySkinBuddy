@@ -8,6 +8,7 @@ interface ChatMessageProps {
   isUser: boolean;
   timestamp: string;
   isLoading?: boolean;
+  isThinkSection?: boolean;
 }
 
 interface Source {
@@ -39,6 +40,7 @@ export function ChatMessage({
   isUser,
   timestamp,
   isLoading = false,
+  isThinkSection = false,
 }: ChatMessageProps) {
   // If message is empty and not loading, don't render anything
   if (!message && !isLoading) return null;
@@ -176,6 +178,8 @@ export function ChatMessage({
         } rounded-2xl py-2 ${
           isUser
             ? "bg-gradient-to-r from-primary-500 to-secondary-500 text-white"
+            : isThinkSection
+            ? "bg-gray-100 border border-gray-200 text-gray-600 italic"
             : "bg-white border border-gray-200 text-gray-800"
         } ${isLoading ? "px-3" : "px-4"}`}
       >

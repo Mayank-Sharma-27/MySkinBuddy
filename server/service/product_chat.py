@@ -1,3 +1,4 @@
+import re
 from langchain_community.chat_models import ChatPerplexity
 import os
 from dotenv import load_dotenv
@@ -28,6 +29,7 @@ import json
 from .chat_service import ChatService
 from .context_builder import ContextBuilder
 import logging
+from .utils.response_formatter import ResponseFormatter, MessageType
 
 duckduckgo = DDGS(timeout=20)
 logger = logging.getLogger()
@@ -102,7 +104,7 @@ class ProductChat:
         cookie_id: str,
         product_id: str,
         message: str
-    ) -> Generator[str, None, None]:
+    ) -> Generator[Dict, None, None]:
         """Handle an incoming chat message."""
         try:
             # Save the user's message
@@ -114,35 +116,37 @@ class ProductChat:
             })
             self.chat_service.save_chat(cookie_id, product_id, chat_data)
             context = chat_data.get("preloaded_context")
+            
             # Get or create context
             if not context:
                 context = self.context_builder.get_context(cookie_id, product_id)
             
-            # Process the question through the agent coordinator
+            # Pass through formatted chunks from agent
             accumulated_response = ""
+            accumulated_citations = ""
             for chunk in self.agent_coordinator.process_question(
                 question=message,
                 context=context,
                 chat_history=chat_data.get("chat_history", [])
             ):
-                accumulated_response += chunk
-                
-                # Prepare chunk message
-                chunk_message = {
-                    "type": "assistant_chunk",
-                    "content": chunk
-                }
-                yield chunk_message
+                if chunk["type"] == MessageType.CHUNK.value:
+                    accumulated_response += chunk["content"]
+                elif chunk["type"] == MessageType.CITATION.value:
+                    accumulated_citations += chunk["content"]
+                yield chunk
             
-            # Save the assistant's complete response
+            # Save the complete response with citations
+            full_response = accumulated_response + accumulated_citations
+            # Remove think sections before saving to chat history
+            cleaned_response = re.sub(r'<think>[\s\S]*?</think>', '', full_response, flags=re.DOTALL).strip()
             chat_data["chat_history"].append({
                 "role": "assistant",
-                "content": accumulated_response,
+                "content": cleaned_response,
                 "timestamp": datetime.utcnow().isoformat()
             })
             self.chat_service.save_chat(cookie_id, product_id, chat_data)
-            # Send done message
-            yield {"type": "done"}
+            
+            yield ResponseFormatter.format_done()
             
         except Exception as e:
             raise
