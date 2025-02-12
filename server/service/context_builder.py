@@ -1,29 +1,9 @@
-from langchain_community.chat_models import ChatPerplexity
 import os
 from dotenv import load_dotenv
-from langchain_core.output_parsers import StrOutputParser
-from langchain.prompts import ChatPromptTemplate
-from langchain_together.embeddings import TogetherEmbeddings
-from sklearn.metrics.pairwise import cosine_similarity
-from langchain_community.vectorstores import InMemoryVectorStore
-from langchain_openai.embeddings import OpenAIEmbeddings
-import boto3
 import json
-from langchain_core.documents import Document
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from langchain_core.runnables import RunnableParallel, RunnablePassthrough
-import time
-from pinecone import Pinecone, ServerlessSpec
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-import re
-from uuid import uuid4
-from datetime import datetime
 from service.s3_client import get_s3_client
-from langchain_google_genai import ChatGoogleGenerativeAI
 from duckduckgo_search import DDGS
 from service.chat_service import ChatService
-from typing import Generator
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from service.s3_client import get_s3_client
 from service.embeddings import pinecone_vector_store
 from service.user_profile import UserProfileService

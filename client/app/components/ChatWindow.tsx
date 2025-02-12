@@ -8,15 +8,17 @@ import { useAuth } from "../contexts/AuthContext";
 import { API_URL } from "../config";
 import dynamic from "next/dynamic";
 import { SmartLoadingIndicator } from "./SmartLoadingIndicator";
+import { flushSync } from "react-dom";
 
 const LoginModal = dynamic(() => import("./LoginModal"), { ssr: false });
 
 interface Message {
   id: string;
-  content: string | React.ReactNode;
+  content: string;
   isUser: boolean;
   timestamp: string;
   isLoading?: boolean;
+  isThinkSection?: boolean;
 }
 
 interface ChatData {
@@ -33,6 +35,18 @@ interface ChatWindowProps {
   fullPage?: boolean;
 }
 
+const removeThinkSections = (content: string): string => {
+  return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+};
+
+const removeCitationNumbers = (content: string): string => {
+  return content.replace(/\[\d+\]/g, "");
+};
+
+const isInThinkSection = (content: string): boolean => {
+  return content.includes("<think>") && !content.includes("</think>");
+};
+
 export function ChatWindow({
   productId,
   chatData: initialChatData,
@@ -45,10 +59,8 @@ export function ChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cookieId = useCookie();
   const { isLoggedIn } = useAuth();
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    // Initialize messages from chat data
     if (initialChatData?.chat_history) {
       const formattedMessages = initialChatData.chat_history.map(
         (msg: any) => ({
@@ -76,27 +88,27 @@ export function ChatWindow({
     setInputMessage("");
     setIsLoading(true);
 
-    // Add user message immediately
     const userMessage: Message = {
       id: Date.now().toString(),
       content: messageContent,
       isUser: true,
       timestamp: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMessage]);
 
-    try {
-      // Create loading message for assistant
-      const loadingMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    const assistantMessageId = (Date.now() + 1).toString();
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
+        id: assistantMessageId,
         content: "",
         isUser: false,
         timestamp: new Date().toISOString(),
         isLoading: true,
-      };
-      setMessages((prev) => [...prev, loadingMessage]);
+      },
+    ]);
 
-      // Send message to server
+    try {
       const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: {
@@ -119,74 +131,94 @@ export function ChatWindow({
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let accumulatedResponse = "";
+      if (!reader) throw new Error("No reader available");
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      let accumulatedContent = "";
+      let accumulatedCitations = "";
+      let fullResponseReceived = false;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          fullResponseReceived = true;
+          break;
+        }
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const rawData = line.slice(5);
-                if (!rawData.trim()) continue;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
 
-                const data = JSON.parse(rawData);
-                console.log("Received data:", data);
+        for (const line of lines) {
+          if (!line.trim() || !line.startsWith("data: ")) continue;
 
-                if (data.type === "error") {
-                  throw new Error(data.content);
-                }
+          try {
+            const jsonStr = line.replace("data: ", "").trim();
+            const messageData = JSON.parse(jsonStr);
 
-                // Handle different response formats
-                let content = "";
-                if (data.content) {
-                  content = data.content;
-                } else if (data.response_metadata) {
-                  // Extract content from the LangChain format
-                  content = data.text || data.content || "";
-                } else if (typeof data === "string") {
-                  content = data;
-                }
+            if (messageData.type === "assistant_chunk") {
+              let cleanContent = messageData.content;
+              accumulatedContent += accumulatedContent
+                ? cleanContent
+                : ` ${cleanContent}`;
 
-                if (content) {
-                  accumulatedResponse = content;
-                  // Update the assistant message
-                  setMessages((prev) => {
-                    const newMessages = [...prev];
-                    const lastMessage = newMessages[newMessages.length - 1];
-                    if (!lastMessage.isUser) {
-                      lastMessage.content = accumulatedResponse;
-                      lastMessage.isLoading = true;
-                    }
-                    return newMessages;
-                  });
-                }
-              } catch (e) {
-                console.error("Error parsing SSE data:", e, "Raw line:", line);
-              }
+              flushSync(() => {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? {
+                          ...msg,
+                          content: removeCitationNumbers(
+                            accumulatedContent + accumulatedCitations
+                          ),
+                          isLoading: false,
+                          isThinkSection: isInThinkSection(accumulatedContent),
+                        }
+                      : msg
+                  )
+                );
+              });
+            } else if (messageData.type === "citations") {
+              accumulatedCitations += messageData.content;
+              flushSync(() => {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? {
+                          ...msg,
+                          content: removeCitationNumbers(
+                            accumulatedContent + accumulatedCitations
+                          ),
+                          isLoading: false,
+                        }
+                      : msg
+                  )
+                );
+              });
             }
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
           }
         }
       }
 
-      // Final update to remove loading state
-      setMessages((prev) => {
-        const newMessages = [...prev];
-        const lastMessage = newMessages[newMessages.length - 1];
-        if (!lastMessage.isUser) {
-          lastMessage.content = accumulatedResponse;
-          lastMessage.isLoading = false;
-        }
-        return newMessages;
-      });
+      if (fullResponseReceived) {
+        accumulatedContent = removeThinkSections(accumulatedContent);
+      }
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: removeCitationNumbers(
+                  accumulatedContent + accumulatedCitations
+                ),
+                isLoading: false,
+              }
+            : msg
+        )
+      );
     } catch (error) {
       console.error("Error sending message:", error);
-      // Remove loading message on error
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -209,6 +241,7 @@ export function ChatWindow({
             isUser={message.isUser}
             timestamp={message.timestamp}
             isLoading={message.isLoading || false}
+            isThinkSection={message.isThinkSection}
           />
         ))}
         <div ref={messagesEndRef} />
@@ -232,13 +265,6 @@ export function ChatWindow({
           </Button>
         </div>
       </form>
-
-      {showLoginModal && (
-        <LoginModal
-          message="Please login to continue chatting. You have reached the message limit for anonymous users."
-          onClose={() => setShowLoginModal(false)}
-        />
-      )}
     </div>
   );
 }

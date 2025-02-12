@@ -3,7 +3,6 @@ from service.product_chat import ProductChat
 from service.chat_service import ChatService
 from service.auth import AuthService
 import json
-import asyncio
 
 auth_service = AuthService()
 chat_service = ChatService()
@@ -83,7 +82,6 @@ def chat():
         
         def generate():
             try:
-                # Use the ProductChat instance to handle messages
                 for chunk in product_chat.handle_message(cookie_id, product_id, user_message):
                     yield f"data: {json.dumps(chunk)}\n\n"
             except Exception as e:

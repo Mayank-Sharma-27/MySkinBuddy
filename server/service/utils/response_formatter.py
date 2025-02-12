@@ -1,5 +1,38 @@
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union, Generator
+from enum import Enum
+
+class MessageType(Enum):
+    CHUNK = "assistant_chunk"
+    CITATION = "citations"
+    DONE = "done"
+    ERROR = "error"
+
+class ResponseFormatter:
+    @staticmethod
+    def format_chunk(content: str) -> Dict:
+        return {
+            "type": MessageType.CHUNK.value,
+            "content": content
+        }
+    
+    @staticmethod
+    def format_citation(content: str) -> Dict:
+        return {
+            "type": MessageType.CITATION.value,
+            "content": content
+        }
+    
+    @staticmethod
+    def format_done() -> Dict:
+        return {"type": MessageType.DONE.value}
+    
+    @staticmethod
+    def format_error(error: str) -> Dict:
+        return {
+            "type": MessageType.ERROR.value,
+            "content": str(error)
+        }
 
 def format_agent_response(response) -> Dict:
     """

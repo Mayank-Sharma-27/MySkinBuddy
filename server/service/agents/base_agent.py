@@ -3,7 +3,6 @@ from typing import Dict, Generator, List, Optional, AsyncGenerator
 from langchain_community.chat_models import ChatPerplexity
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationChain, LLMChain
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
@@ -77,63 +76,7 @@ class BaseAgent(ABC):
             List[str]: List of context type identifiers
         """
         pass
-        
-    async def aprocess(
-        self,
-        question: str,
-        context: Dict,
-        chat_history: Optional[List[Dict]] = None
-    ) -> AsyncGenerator[str, None]:
-        """Async process method"""
-        chain = self.setup_chain()
-        
-        # Prepare input with context
-        chain_input = {
-            "question": question,
-            "context": context.get("product_info", ""),
-            "user_profile_section": context.get("user_profile_section", "")
-        }
-        
-        # Get response
-        response = chain.invoke(chain_input)
-        formatted_response = self.format_response(response)
-        
-        # Save to memory
-        self.memory.save_context(
-            {"input": question},
-            {"output": formatted_response}
-        )
-        
-        yield formatted_response
-        
-    def process(
-        self,
-        question: str,
-        context: Dict,
-        chat_history: Optional[List[Dict]] = None
-    ) -> Generator[str, None, None]:
-        """Synchronous process method"""
-        chain = self.setup_chain()
-        
-        # Prepare input with context
-        chain_input = {
-            "question": question,
-            "context": context.get("product_info", ""),
-            "user_profile_section": context.get("user_profile_section", "")
-        }
-        
-        # Run chain and get response
-        response = chain.invoke(chain_input)
-        formatted_response = self.format_response(response)
-        
-        # Save to memory
-        self.memory.save_context(
-            {"input": question},
-            {"output": formatted_response}
-        )
-        
-        yield formatted_response
-        
+            
     @abstractmethod
     def _get_chat_template(self) -> ChatPromptTemplate:
         """
