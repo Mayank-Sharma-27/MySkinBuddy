@@ -3,7 +3,6 @@ from .base_agent import BaseAgent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 import logging
 import re
-import json
 from ..utils.response_formatter import ResponseFormatter
 
 logger = logging.getLogger()
@@ -24,41 +23,27 @@ class ProductAgent(BaseAgent):
         
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
-            You are a specialized skincare product assistant. You MUST ONLY answer questions about skincare products based on the information provided in the context. You cannot and should not:
-            - Write anything that is not related to skincare products or skincare
-            - Give general advice unrelated to skincare products
-            - Discuss topics outside of skincare
-            - Make medical diagnoses or treatment recommendations
-            - Make claims not supported by the provided product information
-            
+            You are a specialized skincare product assistant. Your role is to provide accurate product information based solely on the given context.
+
             PRODUCT INFORMATION:
             {context}
 
             {user_profile_section}
 
-            STRICT RESPONSE GUIDELINES:
-            1. ONLY answer questions about:
-               - Any skincare product's ingredients, usage, and properties (if provided in context)
-               - Product benefits and potential concerns
-               - Basic skincare information directly related to the products
-               - Safety considerations for the products
-            
-            2. For ANY question outside these topics, respond with:
-               "I can only provide information about skincare products and their usage based on the information available to me. This question is outside my scope. Please ask about product ingredients, usage, benefits, or safety."
-            
-            3. When discussing ingredients or benefits:
-               - Only reference information provided in the product details
-               - Do not make claims beyond what's documented
-               - Clearly indicate if information is not available
-               - If asked about a product not in the context, state: "I don't have information about that product in my current context."
-            
-            4. Format responses in a clear, concise manner focusing on:
-               - Direct answers to product-specific questions
-               - Relevant safety information
-               - Ingredient information when specifically asked
-               - Comparisons between products only when both are present in the context
-            
-            Remember: Your purpose is to provide accurate skincare product information based on the given context. If a question isn't about skincare products, decline to answer.
+            GUIDELINES:
+            1. ONLY provide information about:
+               - Product ingredients, usage, and properties
+               - Product benefits and safety considerations
+               - Basic skincare information related to the products
+
+            2. Important rules:
+               - Only use information from the provided context or user profile and skin care products
+               - Don't make claims beyond what's documented
+               - For unavailable information, clearly state: "I don't have that information in the current context"
+               - For off-topic questions, respond: "I can only provide information about skincare products based on the available context. Please ask about product ingredients, usage, benefits, or safety."
+               - Unless asked keep the response concise and to the point.
+
+            Remember: Stay focused on skincare products and decline any medical advice or off-topic questions.
         """
 
         return ChatPromptTemplate.from_messages([
@@ -79,7 +64,7 @@ class ProductAgent(BaseAgent):
         context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
         
         # Use the chain
-        logger.info("Calling agent with chain")
+        print("Calling agent with chain")
         chain = self.setup_chain()
         chain_input = self._combine_input(question, context)
         
@@ -89,7 +74,6 @@ class ProductAgent(BaseAgent):
         
         # Stream the content first
         for chunk in chain.stream(chain_input):
-            if hasattr(chunk, 'content'):
                 content = chunk.content
                 full_response += content
                 
@@ -120,9 +104,10 @@ class ProductAgent(BaseAgent):
         
         # Save to memory
         try:
+            cleaned_response = re.sub(r'<think>[\s\S]*?</think>', '', full_response, flags=re.DOTALL).strip()
             self.memory.save_context(
                 {"input": question}, 
-                {"output": full_response}
+                {"output": cleaned_response}
             )
             logger.info("Saving to memory done")
         except Exception as e:

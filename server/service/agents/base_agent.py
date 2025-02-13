@@ -23,7 +23,7 @@ class BaseAgent(ABC):
         # Initialize model without streaming
         self.model = ChatPerplexity(
             model="sonar-reasoning",
-            temperature=0.3,
+            temperature=0.8,
             pplx_api_key=api_key
         )
         
