@@ -59,6 +59,7 @@ export function ChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cookieId = useCookie();
   const { isLoggedIn } = useAuth();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     if (initialChatData?.chat_history) {
@@ -71,6 +72,8 @@ export function ChatWindow({
         })
       );
       setMessages(formattedMessages);
+
+      setIsInitialLoad(false);
     }
   }, [initialChatData]);
 
@@ -79,6 +82,11 @@ export function ChatWindow({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  useEffect(() => {
+    console.log("ChatWindow initialChatData:", initialChatData);
+    console.log("Messages length:", messages.length);
+  }, [initialChatData, messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,6 +239,19 @@ export function ChatWindow({
         fullPage ? "h-[calc(100vh-4rem)]" : "h-[600px]"
       }`}
     >
+      {initialChatData.image_url && (isInitialLoad || messages.length <= 1) && (
+        <div className="flex justify-center p-4 max-h-[300px] overflow-hidden bg-white border-b">
+          <img
+            src={initialChatData.image_url}
+            alt={initialChatData.product_name}
+            className="object-contain h-[250px] w-auto rounded-lg shadow-md"
+            onError={(e) => {
+              console.error("Image failed to load:", initialChatData.image_url);
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage

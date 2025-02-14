@@ -152,70 +152,21 @@ export function ChatMessage({
   };
 
   const formatContent = (text: string) => {
-    // Split text into lines to handle headings
-    const lines = text.split('\n');
-    
-    return lines.map((line, lineIndex) => {
-        // Handle ### headings (with or without **)
-        if (line.startsWith('###')) {
-            const headingText = line.replace('###', '').trim();
-            // Check if heading also has ** markers
-            if (headingText.startsWith('**') && headingText.endsWith('**')) {
-                const coloredHeadingText = headingText.slice(2, -2).trim();
-                return (
-                    <h3 key={lineIndex} className="text-lg font-semibold text-primary-600 mt-4 mb-2">
-                        {coloredHeadingText}
-                    </h3>
-                );
-            }
-            return (
-                <h3 key={lineIndex} className="text-lg font-semibold text-gray-900 mt-4 mb-2">
-                    {headingText}
-                </h3>
-            );
-        }
-
-        // Handle colored text and product names
-        const parts = line.split(/(\*\*[^*]+\*\*)/g);
-        const formattedLine = parts.map((part, index) => {
-            if (part.startsWith("**") && part.endsWith("**")) {
-                const content = part.slice(2, -2);
-                return (
-                    <span
-                        key={index}
-                        className="text-primary-600 font-medium"
-                    >
-                        {content}
-                    </span>
-                );
-            }
-            return part;
-        });
-
-        // Handle bullet points with proper indentation
-        if (line.startsWith('- ')) {
-            return (
-                <div key={lineIndex} className="ml-2 mb-1">
-                    {formattedLine}
-                </div>
-            );
-        }
-
-        // Handle numbered items
-        if (line.match(/^\d+\.\s/)) {
-            return (
-                <div key={lineIndex} className="mb-1">
-                    {formattedLine}
-                </div>
-            );
-        }
-
-        // Handle regular text
+    // Handle bold text
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        const content = part.slice(2, -2);
         return (
-            <div key={lineIndex} className="mb-1">
-                {formattedLine}
-            </div>
+          <span
+            key={index}
+            className="font-medium bg-primary-100/20 text-primary-700 px-1 rounded"
+          >
+            {content}
+          </span>
         );
+      }
+      return part;
     });
   };
 

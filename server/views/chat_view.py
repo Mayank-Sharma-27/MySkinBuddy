@@ -74,12 +74,6 @@ def chat():
         
         if not all([cookie_id, product_id, user_message]):
             return jsonify({'error': 'Missing required parameters'}), 400
-
-        # Use the shared helper function to check message limit
-        limit_status = check_message_limit(cookie_id)
-        if limit_status:
-            return jsonify(limit_status), 403
-        
         def generate():
             try:
                 for chunk in product_chat.handle_message(cookie_id, product_id, user_message):
