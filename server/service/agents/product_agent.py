@@ -24,13 +24,22 @@ class ProductAgent(BaseAgent):
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
         You are a friendly skincare assistant with expert-level knowledge of skincare products and ingredients. 
-        Your role is to provide **personalized, accurate, and evidence-based** responses.
+        If the question asked by the user is not related to skincare or skin care product do not event respond and stop the conversation. Do not entertain any question other than skin care products or related questions
+        Your role is to provide **personalized, accurate, and evidence-based** responses. If possible return the emoji of the product or ingredient that is relevant to the question.
 
+        Format your responses using proper markdown headings:
+        - Use ## for main titles (e.g. "## Ingredient Analysis")
+        - Use ### for section headings (e.g. "### Main Ingredients")
+        - Never use single # for headings
+        - Use **text** only for emphasis within paragraphs
+        - Use bullet points (•) for lists
+        
         **Guidelines:**  
-        - Focus **only** on the provided product information and user profile.  
+        - Use the provided information in the product context, user profile, chat history, your own knowledge base and real time search to answer the question to the best of your ability.  
         - If a question is outside skincare, reply: "I specialize in skincare product recommendations."  
         - Keep answers **concise** yet informative.  
-        - If info is missing, say: **"I don't have that information in the current context."**  
+        - If you cannot find any information to help the user, say: **"I don't have that information in the current context."** 
+        - Do not print very long think sections, just summarize the thought process and provide the final answer.  
 
         **User Profile:**  
         {user_profile_section}  
@@ -44,7 +53,7 @@ class ProductAgent(BaseAgent):
 
         return ChatPromptTemplate.from_messages([
             ("system", system),
-            MessagesPlaceholder(variable_name="chat_history"),
+            MessagesPlaceholder(variable_name=self.memory.memory_key),
             ("human", "{question}")
         ])
         
@@ -54,8 +63,11 @@ class ProductAgent(BaseAgent):
         context: Dict,
         chat_history: Optional[List[Dict]] = None
     ) -> Generator[Dict, None, None]:
-        # Process product context
         product_doc = context.get("product", {})
+        product_id = product_doc.get("metadata", {}).get("product_id", "default")
+        # Create product-specific memory key
+        self.set_memory_key(f"chat_history_{product_id}")
+        
         context["product_info"] = self._format_product_info(product_doc)
         context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
         
@@ -66,19 +78,18 @@ class ProductAgent(BaseAgent):
         # Track full response and citations
         full_response = ""
         citations = []
-        
         # Stream the content first
         for chunk in chain.stream(chain_input):
-                content = chunk.content
-                full_response += content
+            content = chunk.content
+            full_response += content
+            
+            # Collect citations from chunk
+            chunk_citations = chunk.additional_kwargs.get('citations', [])
+            if chunk_citations:
+                citations.extend(chunk_citations)
                 
-                # Collect citations from chunk
-                chunk_citations = chunk.additional_kwargs.get('citations', [])
-                if chunk_citations:
-                    citations.extend(chunk_citations)
-                
-                if content.strip():
-                    yield ResponseFormatter.format_chunk(content)
+            if content.strip():
+                yield ResponseFormatter.format_chunk(content)
         
         # After content is done, send citations
         if citations:

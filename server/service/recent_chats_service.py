@@ -32,3 +32,25 @@ def get_recent_chats(cookie_id: str, limit: int = 5) -> List[Dict]:
     except Exception as e:
         print(f"Error fetching recent chats: {str(e)}")
         return []
+    
+def get_all_chats(cookie_id: str) -> List[Dict]:
+    """
+    Fetch all chats for a given cookie_id
+    Returns list of all chats with product info, ordered by most recent first
+    """
+    all_chats = chat_service.get_all_chats_from_s3(cookie_id)
+    
+    seen_products = set()
+    recent_chats = []
+    for chat in all_chats:
+        product_id = chat.get('product_id')
+        if product_id and product_id not in seen_products:
+            seen_products.add(product_id)
+            recent_chats.append({
+                'product_name': chat['product_name'],
+                'image_url': chat['image_url'],
+                'product_id': product_id,
+                'brand_name': chat['brand_name']  
+            })
+                    
+    return recent_chats

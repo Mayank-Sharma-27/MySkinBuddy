@@ -162,6 +162,8 @@ class ChatService:
                 }
 
             # Get messages from specific file
+            if file_index == 0:
+                file_index = metadata.get("current_file_index", 0)
             messages_key = f"chats/{cookie_id}/{product_id}/messages_{file_index}.json"
             try:
                 messages = json.loads(
@@ -225,7 +227,6 @@ class ChatService:
             # First, collect all metadata files
             metadata_files = [obj['Key'] for obj in response.get('Contents', []) 
                             if obj['Key'].endswith('metadata.json')]
-            print(f"Metadata files: {metadata_files}")
             
             # Process each metadata file
             for metadata_key in metadata_files:

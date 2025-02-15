@@ -36,7 +36,10 @@ interface ChatWindowProps {
 }
 
 const removeThinkSections = (content: string): string => {
-  return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return content
+    .replace(/<think>[\s\S]*?<\/think>/g, "")
+    .replace(/\[\d+\]/g, "")
+    .trim();
 };
 
 const removeCitationNumbers = (content: string): string => {

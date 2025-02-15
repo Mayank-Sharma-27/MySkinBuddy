@@ -2,6 +2,8 @@
 
 import { ChatMessage as ChatMessageType } from "../types";
 import React from "react";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { Citations } from "./Citations";
 
 interface ChatMessageProps {
   message: string | React.ReactNode;
@@ -46,115 +48,87 @@ export function ChatMessage({
   if (!message && !isLoading) return null;
 
   const formatMessage = (text: string | React.ReactNode) => {
-    // If message is React component, return it directly
     if (React.isValidElement(text)) {
       return text;
     }
 
-    // If message is empty or loading, return loading dots
     if (!text || isLoading) {
       return <LoadingDots />;
     }
 
-    // Handle string messages
     if (typeof text !== "string") {
       return text;
     }
 
-    // Remove extra spacing and dashes
-    const cleanText = text.replace(/\n---\n/g, "").replace(/\n\n+/g, "\n");
-
-    // Split the message into content and sources
-    const [content, ...sourcesParts] = cleanText.split(
+    // Split content and citations
+    const [content, ...sourcesParts] = text.split(
       "To learn more, you can refer to these sources:"
-    );
-
-    if (!sourcesParts.length) {
-      return formatContent(content.trim());
-    }
-
-    const sourcesText = sourcesParts.join("");
-    const sources = sourcesText
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => {
-        // Match both formats: numbered list with Read more, or just the name
-        const match = line.match(
-          /(?:\d+\.\s+)?(.*?)(?:\s*-\s*\[Read more\]\((.*?)\))?$/
-        );
-        if (match) {
-          const [_, name, url] = match;
-          return { name: name.trim(), url };
-        }
-        return null;
-      })
-      .filter(Boolean);
-
-    // Remove duplicate sources based on name
-    const uniqueSources = (sources as (Source | null)[]).reduce<Source[]>(
-      (acc, current) => {
-        if (!current) return acc;
-        const isDuplicate = acc.find((item) => item.name === current.name);
-        if (!isDuplicate) {
-          acc.push(current);
-        }
-        return acc;
-      },
-      []
     );
 
     return (
       <div className="space-y-2">
-        <div>{formatContent(content.trim())}</div>
-        {uniqueSources.length > 0 && (
-          <div className="border-t border-gray-200 pt-2 mt-3">
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-3.5 w-3.5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                </svg>
-                Sources
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {uniqueSources.map((source, index) => (
-                  <a
-                    key={index}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs px-3 py-1 rounded-full bg-primary-50 hover:bg-primary-100 text-primary-600 hover:text-primary-700 transition-colors border border-primary-100 flex items-center gap-1"
-                  >
-                    <span>{source.name}</span>
-                    {source.url && (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-3 w-3"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                        <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                      </svg>
-                    )}
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
+        <MarkdownRenderer content={content.trim()} />
+        {sourcesParts.length > 0 && (
+          <Citations sourcesText={sourcesParts.join("")} />
         )}
       </div>
     );
   };
 
   const formatContent = (text: string) => {
-    // Handle bold text
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    // First handle headings and sections
+    const parts = text.split(
+      /(\#{1,3}\s+[^\n]+\n|\d+\.\s+[^\n]+\n|-\s+[^\n]+\n)/g
+    );
+
     return parts.map((part, index) => {
+      // Handle headings (## or ###)
+      const headingMatch = part.match(/^(#{1,3})\s+([^\n]+)/);
+      if (headingMatch) {
+        const [_, hashes, content] = headingMatch;
+        const level = hashes.length;
+        const className = level === 2 ? "text-xl" : "text-lg";
+        return (
+          <h1
+            key={index}
+            className={`${className} font-semibold text-primary-600 mt-4 mb-2`}
+          >
+            {content.trim()}
+          </h1>
+        );
+      }
+
+      // Handle numbered lists (1. Text)
+      const numberedListMatch = part.match(/^\d+\.\s+([^\n]+)/);
+      if (numberedListMatch) {
+        const [_, content] = numberedListMatch;
+        return (
+          <div key={index} className="ml-4 mb-2">
+            {formatBoldText(content.trim())}
+          </div>
+        );
+      }
+
+      // Handle bullet points (- Text)
+      const bulletMatch = part.match(/^-\s+([^\n]+)/);
+      if (bulletMatch) {
+        const [_, content] = bulletMatch;
+        return (
+          <div key={index} className="ml-4 mb-2">
+            • {formatBoldText(content.trim())}
+          </div>
+        );
+      }
+
+      // Handle regular text with bold formatting
+      return formatBoldText(part);
+    });
+  };
+
+  // Helper function to handle bold text
+  const formatBoldText = (text: string) => {
+    const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+    return boldParts.map((part, index) => {
       if (part.startsWith("**") && part.endsWith("**")) {
         const content = part.slice(2, -2);
         return (

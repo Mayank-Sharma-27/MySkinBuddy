@@ -23,16 +23,12 @@ class BaseAgent(ABC):
         # Initialize model without streaming
         self.model = ChatPerplexity(
             model="sonar-reasoning",
-            temperature=0.8,
+            temperature=1,
             pplx_api_key=api_key
         )
         
-        # Initialize memory
-        self.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            output_key="output"
-        )
+        # Initialize memory with a default key
+        self._init_memory("chat_history")
         
         self.embeddings = embeddings
         self.vector_store = pinecone_vector_store
@@ -43,13 +39,25 @@ class BaseAgent(ABC):
             search_kwargs={"k": 3}
         )
         
+    def _init_memory(self, memory_key: str):
+        """Initialize memory with a specific key"""
+        self.memory = ConversationBufferMemory(
+            memory_key=memory_key,
+            return_messages=True,
+            output_key="output"
+        )
+
+    def set_memory_key(self, key: str):
+        """Set a new memory key and reinitialize memory"""
+        self._init_memory(key)
+        
     def setup_chain(self):
         """Setup the RAG chain with memory"""
         template = self._get_chat_template()
         
         # Create the chain with memory integration
         chain = RunnablePassthrough.assign(
-            chat_history=lambda x: self.memory.load_memory_variables({})["chat_history"]
+            **{self.memory.memory_key: lambda x: self.memory.load_memory_variables({})[self.memory.memory_key]}
         ) | template | self.model
         
         return chain
@@ -117,5 +125,4 @@ class BaseAgent(ABC):
             "question": question,
             "context": context.get("product_info", ""),
             "user_profile_section": context.get("user_profile_section", ""),
-            "chat_history": self.memory.load_memory_variables({})["chat_history"]
         } 
