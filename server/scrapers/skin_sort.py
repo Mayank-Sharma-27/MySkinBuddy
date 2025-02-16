@@ -314,7 +314,7 @@ def scrape_and_upload_products(products=None):
     bucket_name = "product-buddy"
     
     # Get count of existing products
-    start_index = 0  # Reset to 0 since we're using new product list
+    start_index = 0
     print(f"Starting from index: {start_index}")
     
     for number, product in enumerate(products[start_index:], start=start_index):
@@ -323,15 +323,30 @@ def scrape_and_upload_products(products=None):
             product_url = url.strip('/')
             folder_path = product_url.lstrip('/')
             print(f"Processing product at path: {folder_path}")
-            # Check if product file exists and has missing data
+            
+            # Check if product exists and has complete data
             try:
                 product_file_path = f"{folder_path}/{folder_path.split('/')[-1]}.json"
                 response = s3_client.get_object(Bucket=bucket_name, Key=product_file_path)
+                existing_data = json.loads(response['Body'].read().decode('utf-8'))
                 
-                
-                # Skip if both brand and product exist and are not empty strings
-            except:
-                pass  # Product doesn't exist yet or other error, continue with scraping
+                # Check if product has all required data
+                if (existing_data.get('brand') and 
+                    existing_data.get('product') and 
+                    existing_data.get('ingredients_overview')):
+                    print(f"Product exists with complete data, skipping: {url}")
+                    continue
+                else:
+                    print(f"Product exists but has incomplete data, re-scraping: {url}")
+            except ClientError as e:
+                if e.response['Error']['Code'] == '404':
+                    print(f"Product doesn't exist, scraping: {url}")
+                else:
+                    print(f"Error checking product existence: {str(e)}")
+                    continue
+            except Exception as e:
+                print(f"Error reading existing product data: {str(e)}")
+                continue
             
             # Make a single request to get the HTML content
             scrapper = cloudscraper.create_scraper()
