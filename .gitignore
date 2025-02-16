@@ -43,8 +43,6 @@ ENV/
 node_modules/
 
 # Scrapers
-server/scrapers/
-scrapers/
 *.py[cod]
 products.json
 
