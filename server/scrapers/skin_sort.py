@@ -342,11 +342,9 @@ def scrape_and_upload_products(products=None):
                 if e.response['Error']['Code'] == '404':
                     print(f"Product doesn't exist, scraping: {url}")
                 else:
-                    print(f"Error checking product existence: {str(e)}")
-                    continue
+                    print(f"Error checking product existence: {str(e)}, proceeding with scrape")
             except Exception as e:
-                print(f"Error reading existing product data: {str(e)}")
-                continue
+                print(f"Error reading existing product data: {str(e)}, proceeding with scrape")
             
             # Make a single request to get the HTML content
             scrapper = cloudscraper.create_scraper()
