@@ -79,6 +79,19 @@ def normalize_product_name(name):
 def generate_product_id(product_name, brand_name):
     return int(time.time() * 1000)   
 
+def is_product_present(product_name, brand_name):
+    """
+    Check if a product already exists in the vector database.
+    Returns True if product exists, False otherwise.
+    """
+    normalized_query = f"Product: {product_name}. Brand: {brand_name}."
+    results = pinecone_vector_store.similarity_search(
+        normalized_query,
+        k=1,
+        filter={"product": product_name, "brand": brand_name}
+    )
+    return len(results) > 0
+
 def create_product_embeddings():
     documents = []
     total_documents = 0
@@ -104,7 +117,7 @@ def create_product_embeddings():
                     continue
                 
                 processed_documents += 1
-                if processed_documents <= 24311:
+                if processed_documents <= 0:
                     continue
                 
                 try:
@@ -123,6 +136,11 @@ def create_product_embeddings():
                         product_name = normalize_product_name(key.split('/')[-2])
                         brand_name = normalize_product_name(key.split('/')[1])
                     
+                    # Check if product already exists
+                    if is_product_present(product_name, brand_name):
+                        print(f"Skipping {product_name} by {brand_name} - already exists in database")
+                        continue
+                        
                     product_id = generate_product_id(product_name, brand_name)
                     image_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{base_path}/{base_path.split('/')[2]}.jpg"
                     
