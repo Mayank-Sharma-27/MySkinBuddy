@@ -487,24 +487,22 @@ def get_product_data(html_content: bytes) -> dict:
     # Extract brand and product name
     product_header = soup.find('h1', class_='px-4')
     if product_header:
-        # Extract the brand name
-        brand_element = product_header.find('span', class_='pb-1 text-lg xl:text-3xl font-medium text-warm-gray-900/60')
-        if brand_element:
-            brand_link = brand_element.find('a')
-            result["brand"] = brand_link.text.strip() if brand_link else ""
-        else:
-            print("Brand element not found in product header")
-
-        # Extract the product name by getting the text node between spans
-        # Filter out span elements and get only direct text nodes
-        text_nodes = [node for node in product_header.children 
-                     if isinstance(node, str) and node.strip()]
+        # Find all span elements in the product header
+        spans = product_header.find_all('span')
         
-        # The product name should be the first non-empty text node
-        if text_nodes:
-            result["product"] = text_nodes[0].strip()
+        if len(spans) >= 2:
+            # First span contains the brand
+            brand_link = spans[0].find('a')
+            result["brand"] = brand_link.text.strip() if brand_link else spans[0].text.strip()
+            
+            # Second span contains the product name
+            result["product"] = spans[1].text.strip()
+            
+            print(f"Found brand: {result['brand']}, product: {result['product']}")
         else:
-            print("Product name not found in product header")
+            print(f"Expected 2 spans, found {len(spans)} in product header")
+            result["brand"] = ""
+            result["product"] = ""
     else:
         print("Product header not found")
 
