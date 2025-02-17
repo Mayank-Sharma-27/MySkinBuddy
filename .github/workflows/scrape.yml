@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        sitemap: [1, 2, 3, 4, 5, 6]
+        sitemap: [2, 3, 6]
       # Add this to run jobs in parallel
       max-parallel: 2  # Process 2 sitemaps at a time
     
