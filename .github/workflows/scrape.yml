@@ -1,9 +1,7 @@
 name: Scrape Products
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch: # Only manual trigger
 
 jobs:
   scrape:
@@ -12,26 +10,26 @@ jobs:
       matrix:
         sitemap: [3, 6]
       # Add this to run jobs in parallel
-      max-parallel: 2  # Process 2 sitemaps at a time
-    
+      max-parallel: 2 # Process 2 sitemaps at a time
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    - name: Run scraper
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        SITEMAP_NUMBER: ${{ matrix.sitemap }}
-      run: |
-        python server/scrapers/skin_sort.py
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run scraper
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SITEMAP_NUMBER: ${{ matrix.sitemap }}
+        run: |
+          python server/scrapers/skin_sort.py
