@@ -113,7 +113,7 @@ def create_product_embeddings():
                     continue
                 
                 total_documents += 1
-                if total_documents <= 0:
+                if total_documents <= 23093:
                     continue
                 
                 processed_documents += 1
@@ -188,7 +188,7 @@ def create_product_embeddings():
                     )
                     pinecone_vector_store.add_documents([main_doc])
                     
-                    print(f"Processed product {processed_documents}: {product_name}")
+                    print(f"Processed product {total_documents}: {product_name}")
                     
                 except Exception as e:
                     print(f"Error processing individual product {key}: {e}")
@@ -198,10 +198,11 @@ def create_product_embeddings():
             if not continuation_token:
                 break
             
-        print(f"Total products processed and uploaded: {processed_documents}")
+        print(f"Total products processed and uploaded: {total_documents}")
         
     except Exception as e:
         print(f"Error in main processing loop: {e} with {processed_documents} documents")
+
 
 #create_product_embeddings()
 #create_ingredient_embeddings()

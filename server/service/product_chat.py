@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import ChatPromptTemplate
+from langchain_together import ChatTogether
 from langchain_together.embeddings import TogetherEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_community.vectorstores import InMemoryVectorStore
@@ -40,22 +41,16 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY  = os.getenv("AWS_SECRET_ACCESS_KEY")
 BUCKET_NAME = "product-buddy"
 FOLDER_NAME = "chats"
-BATCH_SIZE = 100
         
 api_key = os.getenv("PERPLEXITY_API_KEY") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-model = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    temperature=0.3,
+model = ChatTogether(
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo-128K",
+    temperature=1,
     max_tokens=None,
     timeout=30,
-    max_retries=3,
-    streaming=True
+    max_retries=3
 )
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-index = pc.Index("product-buddy-google")
-parser = StrOutputParser()
-embeddings = embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
 s3_client = get_s3_client()
 
@@ -67,6 +62,42 @@ class ProductChat:
         self.chat_service = ChatService()
         self.context_builder = ContextBuilder()
         self.agent_coordinator = AgentCoordinator()
+
+    def _check_content_relevance(self, message: str, chat_history: list) -> bool:
+        """
+        Check if the message content is relevant to skincare topics.
+        Returns True if content is relevant, False otherwise.
+        """
+        # Get last 10 messages for context
+        recent_history = chat_history[-10:] if len(chat_history) > 10 else chat_history
+        
+        # Format chat history for the prompt
+        formatted_history = "\n".join([
+            f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
+            for msg in recent_history
+        ])
+        
+        filter_prompt = """You are a content filter for a skincare website chatbot. 
+        Determine if the following question is related to skincare, beauty products, or skin health.
+        Consider the chat history for context when making your decision.
+        If the question is not related to these topics, respond with 'UNRELATED'.
+        If it is related, respond with 'RELATED'.
+        
+        Chat History:
+        {history}
+        
+        Current Question: {question}
+        
+        Response (RELATED/UNRELATED):"""
+        
+        filter_response = model.invoke(
+            filter_prompt.format(
+                history=formatted_history,
+                question=message
+            )
+        )
+        print(filter_response.content)
+        return "UNRELATED" not in filter_response.content.upper()
 
     def initialize_chat(self, cookie_id: str, product_id: str) -> Dict:
         """Initialize a new chat session for a product."""
@@ -115,6 +146,16 @@ class ProductChat:
                 "timestamp": datetime.utcnow().isoformat()
             })
             self.chat_service.save_chat(cookie_id, product_id, chat_data)
+            
+            # Content filtering check
+            if not self._check_content_relevance(message, chat_data.get("chat_history", [])):
+                yield ResponseFormatter.format_chunk(
+                    "I apologize, but I can only assist with questions related to skincare, beauty products, and skin health. "
+                    "Please feel free to ask me anything about these topics!"
+                )
+                yield ResponseFormatter.format_done()
+                return
+
             context = chat_data.get("preloaded_context")
             
             # Get or create context
