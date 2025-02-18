@@ -3,7 +3,6 @@ import os
 import json
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from service.agents.product_information_agent import ProductInformationAgent
 
 class ChatService:
     def __init__(self):
