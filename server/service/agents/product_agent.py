@@ -25,20 +25,14 @@ class ProductAgent(BaseAgent):
         system = """
         You are a top tier skincare expert who has detailed knowledge of what impact a certian ingredient can have on a person's skin.
         You will be given a product, some ingredients in the product and a user profile. The user will ask you questions about the product or related questions.
-        You will do you best to answer the question based on you knowledge about skincare and the product from the context provided. You can also use real time search based on what you think is the best way to answer the question.
-        Format your responses using proper markdown headings:
-        - Use ## for main titles (e.g. "## Ingredient Analysis")
-        - Use ### for section headings (e.g. "### Main Ingredients")
-        - Never use single # for headings
-        - Use **text** only for emphasis within paragraphs
-        - Use bullet points (•) for lists
-        
+        You will do you best to answer the question based on you knowledge about skincare and the product from the context provided.        
         **Guidelines:**  
-        - Use the provided information in the product context, user profile, chat history, your own knowledge base and real time search to answer the question to the best of your ability.  
+        - Provide direct, concise answers without explaining your thought process
+        - Focus on giving practical, actionable information
         - If a question is outside skincare, reply: "I specialize in skincare product recommendations."  
-        - Keep answers **concise** yet informative.  
-        - If you cannot find any information to help the user from the context provided or your own knowledge base, say: **"I don't have that information in the current context."** 
-        - Do not print very long think sections, just summarize the thought process and provide the final answer.  
+        - If you cannot find relevant information, simply say: "I don't have that information in the current context."
+        - Do not include any thinking, reasoning, or analysis sections in your response
+        - Keep responses brief but informative
 
         **User Profile:**  
         {user_profile_section}  
@@ -68,6 +62,7 @@ class ProductAgent(BaseAgent):
         self.set_memory_key(f"chat_history_{product_id}")
         
         context["product_info"] = self._format_product_info(product_doc)
+        print(context["product_info"])
         context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
         
         # Use the chain
@@ -120,15 +115,44 @@ class ProductAgent(BaseAgent):
         
     def _format_product_info(self, product_doc: Dict) -> str:
         """Format product information for the prompt"""
-        product_info = product_doc.get("page_content", "")
-        product_name = product_doc.get("metadata", {}).get("product", "")
-        brand_name = product_doc.get("metadata", {}).get("brand", "")
+        content = product_doc.get("page_content", "")
+        metadata = product_doc.get("metadata", {})
         
-        return f"""
-        Brand: {brand_name}
-        Product: {product_name}
-        Details: {product_info}
-        """
+        # Extract product details
+        product_name = metadata.get("product", "")
+        brand_name = metadata.get("brand", "")
+        
+        # Parse the page content to extract structured information
+        ingredients = []
+        benefits = []
+        concerns = []
+        
+        # Extract information from content
+        if content:
+            # Extract ingredients
+            if "Notable Ingredients:" in content:
+                ingredients_section = content.split("Notable Ingredients:")[1].split(".")[0]
+                ingredients = [i.strip() for i in ingredients_section.split(",")]
+            
+            # Extract benefits
+            if "Benefits:" in content:
+                benefits_section = content.split("Benefits:")[1].split(".")[0]
+                benefits = [b.strip() for b in benefits_section.split(",")]
+            
+            # Extract concerns
+            if "Concerns:" in content:
+                concerns_section = content.split("Concerns:")[1].split(".")[0]
+                concerns = [c.strip() for c in concerns_section.split(",")]
+        
+        # Format ingredients, benefits, and concerns
+        ingredients_text = ('• ' + '\n• '.join(ingredients)) if ingredients else 'No ingredient information available'
+        benefits_text = ('• ' + '\n• '.join(benefits)) if benefits else 'No benefits information available'
+        concerns_text = ('• ' + '\n• '.join(concerns)) if concerns else 'No concerns information available'
+        
+        # Format the information without line breaks in f-string
+        formatted_info = f"**Product Details:**\n• Brand: {brand_name}\n• Product: {product_name}\n\n**Key Ingredients:**\n{ingredients_text}\n\n**Known Benefits:**\n{benefits_text}\n\n**Potential Concerns:**\n{concerns_text}"
+        
+        return formatted_info
         
     def _format_user_profile(self, user_info: Dict) -> str:
         """Format user profile information if available"""
