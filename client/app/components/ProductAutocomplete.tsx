@@ -8,23 +8,33 @@ import { getCookieId } from "../utils/cookies";
 import { API_URL } from "../config";
 import { useMessageLimit } from "../contexts/MessageLimitContext";
 import dynamic from "next/dynamic";
+import { SearchButton } from "./ui/SearchButton";
 
 const LoginModal = dynamic(() => import("./LoginModal"), {
   ssr: false,
 });
 
 interface Product {
+  label: string;
+  value: {
+    product: string;
+    brand: string;
+  };
   product_id: string;
-  product: string;
-  brand: string;
   image_url: string;
 }
 
 interface ProductAutoCompleteProps {
   onSearch: (productName: string, brandName: string) => void;
+  initialSearchTerm?: string;
+  disableInitialLoad?: boolean;
 }
 
-export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
+export const ProductAutoComplete = ({
+  onSearch,
+  initialSearchTerm = "",
+  disableInitialLoad = false,
+}: ProductAutoCompleteProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +47,9 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
   const { showLoginPrompt, checkMessageLimit, resetLoginPrompt } =
     useMessageLimit();
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(1);
+  const LIMIT = 5;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,7 +67,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
 
   useEffect(() => {
     const getSuggestions = async () => {
-      if (!debouncedSearchTerm.trim()) {
+      if (!debouncedSearchTerm.trim() || disableInitialLoad) {
         setProducts([]);
         return;
       }
@@ -99,7 +112,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
     };
 
     getSuggestions();
-  }, [debouncedSearchTerm, checkMessageLimit]);
+  }, [debouncedSearchTerm, checkMessageLimit, disableInitialLoad]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -107,9 +120,31 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
       const canProceed = await checkMessageLimit();
       if (!canProceed) return;
 
-      onSearch(searchTerm, "");
-      setShowDropdown(false);
-      setSearchTerm("");
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `${API_URL}/search-products?product=${encodeURIComponent(
+            searchTerm
+          )}`,
+          {
+            headers: {
+              "X-Cookie-ID": getCookieId() || "",
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error("Search failed");
+        const data = await response.json();
+
+        // Call onSearch with the search term
+        onSearch(searchTerm, "");
+        setShowDropdown(false);
+        setSearchTerm("");
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -125,7 +160,13 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showDropdown) return;
+    if (!showDropdown) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSubmit(e as any);
+        return;
+      }
+    }
 
     switch (e.key) {
       case "ArrowDown":
@@ -142,6 +183,8 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
         e.preventDefault();
         if (activeIndex >= 0 && products[activeIndex]) {
           handleProductSelect(products[activeIndex]);
+        } else {
+          handleSubmit(e as any);
         }
         break;
       case "Escape":
@@ -150,6 +193,45 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
         break;
     }
   };
+
+  const loadMoreSuggestions = async () => {
+    if (!debouncedSearchTerm.trim() || isLoading) return;
+
+    try {
+      const canProceed = await checkMessageLimit();
+      if (!canProceed) return;
+
+      const response = await fetch(
+        `${API_URL}/product-suggestions?q=${encodeURIComponent(
+          debouncedSearchTerm
+        )}&offset=${offset}&limit=${LIMIT}`,
+        {
+          headers: {
+            "X-Cookie-ID": getCookieId() || "",
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Search failed");
+      const newProducts = await response.json();
+
+      if (newProducts.length < LIMIT) {
+        setHasMore(false);
+      }
+
+      setProducts((prev) => [...prev, ...newProducts]);
+      setOffset((prev) => prev + LIMIT);
+    } catch (error) {
+      console.error("Error loading more suggestions:", error);
+    }
+  };
+
+  // Reset pagination when search term changes
+  useEffect(() => {
+    setProducts([]);
+    setOffset(1);
+    setHasMore(true);
+  }, [debouncedSearchTerm]);
 
   return (
     <>
@@ -186,7 +268,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
                 setTimeout(() => setShowDropdown(false), 200);
               }}
               placeholder="Search any product..."
-              className={`w-full pl-10 pr-10 py-4 rounded-2xl border-2 bg-white/80 
+              className={`w-full pl-10 pr-16 py-4 rounded-2xl border-2 bg-white/80 
                        backdrop-blur-sm transition-all duration-200 outline-none
                        text-base md:text-lg
                        shadow-sm focus:shadow-lg
@@ -211,7 +293,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
                   setSearchTerm("");
                   inputRef.current?.focus();
                 }}
-                className="absolute inset-y-0 right-4 flex items-center"
+                className="absolute right-14 inset-y-0 flex items-center pr-2"
               >
                 <span className="sr-only">Clear search</span>
                 <svg
@@ -229,17 +311,47 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
                 </svg>
               </button>
             )}
+            <button
+              type="submit"
+              className="absolute inset-y-0 right-4 flex items-center"
+            >
+              <span className="sr-only">Search</span>
+              <svg
+                className="h-5 w-5 text-gray-400 hover:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </button>
           </div>
         </form>
 
         {showDropdown && searchTerm.length > 0 && (
           <div
             className="absolute z-10 left-0 right-0 mt-2 bg-white/80 backdrop-blur-sm 
-                     rounded-xl shadow-xl border border-gray-100 overflow-hidden
+                     rounded-xl shadow-xl border border-gray-100
                      transition-all duration-200 ease-in-out
-                     max-h-[80vh] overflow-y-auto"
+                     max-h-[400px] overflow-y-auto"
             role="listbox"
             id="search-listbox"
+            onScroll={(e) => {
+              const target = e.target as HTMLDivElement;
+              if (
+                target.scrollHeight - target.scrollTop ===
+                  target.clientHeight &&
+                hasMore &&
+                !isLoading
+              ) {
+                loadMoreSuggestions();
+              }
+            }}
           >
             {isLoading ? (
               <div className="p-4">
@@ -273,7 +385,7 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
                   <div className="flex-shrink-0 w-16 h-16 relative">
                     <Image
                       src={product.image_url}
-                      alt={product.product}
+                      alt={product.value.product}
                       fill
                       className="rounded-lg object-cover"
                       sizes="(max-width: 64px) 100vw, 64px"
@@ -281,10 +393,10 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="font-medium text-gray-900 truncate">
-                      {product.product}
+                      {product.value.product}
                     </span>
                     <span className="text-sm text-gray-500 truncate">
-                      {product.brand}
+                      {product.value.brand}
                     </span>
                   </div>
                 </div>
@@ -292,6 +404,11 @@ export const ProductAutoComplete = ({ onSearch }: ProductAutoCompleteProps) => {
             ) : (
               <div className="p-6 text-center text-gray-500">
                 No products found
+              </div>
+            )}
+            {hasMore && (
+              <div className="p-4 text-center">
+                <span className="text-gray-500">Loading more...</span>
               </div>
             )}
           </div>

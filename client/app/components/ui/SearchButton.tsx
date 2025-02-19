@@ -13,18 +13,33 @@ export function SearchButton({
   ...props
 }: SearchButtonProps) {
   const baseStyles = twMerge(
-    "px-8 py-3.5 rounded-2xl font-medium text-white whitespace-nowrap",
+    "absolute right-2 inset-y-2",
+    "rounded-xl text-white aspect-square",
     "bg-gradient-to-r from-[#B75CFF] to-[#FF7373]",
     "hover:from-[#A346FF] hover:to-[#FF5C5C]",
-    "transition-all duration-200 shadow-sm",
-    "hover:shadow-md hover:-translate-y-0.5",
-    "active:translate-y-0",
+    "transition-all duration-200",
+    "hover:scale-105",
+    "active:scale-95",
+    "flex items-center justify-center",
     className
   );
 
   return (
     <button className={baseStyles} {...props}>
-      {children}
+      <span className="sr-only">Search</span>
+      <svg
+        className="h-5 w-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2.5}
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        />
+      </svg>
     </button>
   );
 }
