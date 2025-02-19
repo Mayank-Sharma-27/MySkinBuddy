@@ -14,17 +14,14 @@ def search_products():
         return jsonify(limit_status), 403
     
     product = request.args.get('product')
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 20))
     
     if not product:
-        return jsonify({"error": "Both product and brand parameters are required"}), 400
+        return jsonify({"error": "Product parameter is required"}), 400
         
-    products = find_product_with_retriever(product)
-    # Update the response to include image_url
-    return jsonify([{
-        "product": p["product"], 
-        "brand": p["brand"],
-        "image_url": p.get("image_url", "")  # Include image_url in the response
-    } for p in products])
+    products = find_product_with_retriever(product, offset=offset, limit=limit)
+    return jsonify(products)
     
 @search_product_route.route('/product-suggestions', methods=['GET'])
 def product_suggestions_route():
@@ -36,18 +33,11 @@ def product_suggestions_route():
         return jsonify(limit_status), 403
     
     query = request.args.get('q', '')
-    max_suggestions = int(request.args.get('max', '5'))
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 5))
     
-    suggestions = get_product_suggestions(query, max_suggestions)
-    # Format response to match search_products format
-    formatted_suggestions = [{
-        "product": suggestion["value"]["product"],
-        "brand": suggestion["value"]["brand"],
-        "image_url": suggestion["image_url"],
-        "product_id": suggestion["product_id"]
-    } for suggestion in suggestions]
-    
-    return jsonify(formatted_suggestions)
+    suggestions = get_product_suggestions(query, offset=offset, limit=limit)
+    return jsonify(suggestions)
 
 def register(app, options=None):
     if options is None:

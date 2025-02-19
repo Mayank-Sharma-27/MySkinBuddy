@@ -5,6 +5,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { CookieProvider } from "./utils/CookieProvider";
 import { MessageLimitProvider } from "./contexts/MessageLimitContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { Footer } from "./components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -111,15 +112,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <GoogleOAuthProvider
-          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}
-        >
-          <CookieProvider>
-            <AuthProvider>
-              <MessageLimitProvider>{children}</MessageLimitProvider>
-            </AuthProvider>
-          </CookieProvider>
-        </GoogleOAuthProvider>
+        <div className="min-h-screen flex flex-col justify-between">
+          <main>
+            <GoogleOAuthProvider
+              clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}
+            >
+              <CookieProvider>
+                <AuthProvider>
+                  <MessageLimitProvider>{children}</MessageLimitProvider>
+                </AuthProvider>
+              </CookieProvider>
+            </GoogleOAuthProvider>
+          </main>
+        </div>
       </body>
     </html>
   );

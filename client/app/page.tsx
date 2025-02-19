@@ -121,7 +121,6 @@ export default function Home() {
           </Container>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }
