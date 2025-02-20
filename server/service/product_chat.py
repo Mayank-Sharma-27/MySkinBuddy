@@ -77,9 +77,10 @@ class ProductChat:
             for msg in recent_history
         ])
         
-        filter_prompt = """You are a content filter for a skincare website chatbot. 
+        filter_prompt = """You are a content filter for a cosemetic website chatbot. 
         Determine if the following question is related to skincare, beauty products, or skin health.
-        Consider the chat history for context when making your decision.
+        Consider the chat history for context when making your decision. If the chat history suggests that the user is asking about a specific product, then respond with 'RELATED'.
+        If the chat history suggests that user is not asking about skin care products but the current question is about a product, then respond with 'RELATED'.
         If the question is not related to these topics, respond with 'UNRELATED'.
         If it is related, respond with 'RELATED'.
         

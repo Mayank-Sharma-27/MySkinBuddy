@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Optional, Tuple, Union, Generator
+from typing import Dict, Optional, Tuple, Union, Generator, List
 from enum import Enum
 
 class MessageType(Enum):
@@ -10,10 +10,74 @@ class MessageType(Enum):
 
 class ResponseFormatter:
     @staticmethod
+    def chunk_content(content: str) -> List[str]:
+        """
+        Split content into meaningful chunks using regex patterns.
+        Returns a list of chunks that preserve markdown formatting.
+        """
+        # Define regex patterns for splitting
+        patterns = [
+            r'(?<=\.\s)',      # After periods with space
+            r'(?<=\?\s)',      # After question marks with space
+            r'(?<=!\s)',       # After exclamation marks with space
+            r'(?<=\n)',        # After newlines
+            r'(?<=:\s)',       # After colons with space
+            r'(?<=\*\*\s)',    # After bold markers with space
+            r'(?<=\*\s)',      # After italic marker with space
+            r'(?<=\*)',        # After italic marker
+            r'(?<=# )',        # After h1 marker
+            r'(?<=## )',       # After h2 marker
+            r'(?<=### )',      # After h3 marker
+            r'(?<=#### )',     # After h4 marker
+            r'(?<=##### )',    # After h5 marker
+            r'(?<=•\s)',       # After bullet points
+        ]
+        
+        # Combine all patterns
+        split_pattern = '|'.join(patterns)
+        
+        # Split the content while preserving the delimiters
+        chunks = re.split(f'({split_pattern})', content)
+        
+        # Combine chunks meaningfully
+        result = []
+        current_chunk = ''
+        
+        for chunk in chunks:
+            current_chunk += chunk
+            # Check if chunk ends with newline or is a complete heading
+            if (
+                len(current_chunk.strip()) >= 3 and 
+                (re.search(split_pattern, current_chunk) or 
+                 re.search(r'#+ .*\n', current_chunk))
+            ):
+                result.append(current_chunk)
+                current_chunk = ''
+                
+        # Add any remaining content
+        if current_chunk.strip():
+            result.append(current_chunk)
+            
+        return result
+
+    @staticmethod
     def format_chunk(content: str) -> Dict:
+        """
+        Format a single chunk of content.
+        Now supports both direct content and chunked content.
+        """
+        chunks = ResponseFormatter.chunk_content(content)
+        if len(chunks) <= 1:
+            return {
+                "type": MessageType.CHUNK.value,
+                "content": content
+            }
+        
+        # Return first chunk, queue others for next iterations
         return {
             "type": MessageType.CHUNK.value,
-            "content": content
+            "content": chunks[0],
+            "remaining_chunks": chunks[1:]
         }
     
     @staticmethod
@@ -83,7 +147,7 @@ def format_citations(content: str, citations: list) -> str:
     # Add citations section at the end
     if citations:
         content = content.strip()
-        content += "\n\n---\n\nTo learn more, you can refer to these sources:\n"
+        content += ""
         
         for i, url in enumerate(citations, 1):
             # Extract domain name for better readability

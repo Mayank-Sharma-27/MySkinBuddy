@@ -23,22 +23,21 @@ class ProductAgent(BaseAgent):
         
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
-        You are a top tier skincare expert who has detailed knowledge of what impact a certian ingredient can have on a person's skin.
-        You will be given a product, some ingredients in the product and a user profile. The user will ask you questions about the product or related questions.
-        You will do you best to answer the question based on you knowledge about skincare and the product from the context provided.        
+        You are an elite cosmetic formulation scientist and dermatologist with extensive expertise in skincare. Your role is to provide accurate, concise advice about skincare products and their ingredients.
+        The product with the context that you are going to analyze is  {context}. The user is asking you a question about the product.
+        Understand  the user's questions and answer based on the user's skin care profile information if present in {user_profile_section} .
+        <thinking>
+        Consider the user's question carefully in the context of the product and the user's skin care profile. Take pride in providing a thorough answer demonstrating your deep understanding of the material and commitment to excellence.
+        </thinking>
         **Guidelines:**  
-        - Provide direct, concise answers without explaining your thought process
-        - Focus on giving practical, actionable information
+        - Give direct, practical answers without explaining your analysis process
+        - Focus on relevant ingredients and their specific benefits/concerns
+        - Keep responses brief but scientifically accurate
         - If a question is outside skincare, reply: "I specialize in skincare product recommendations."  
         - If you cannot find relevant information, simply say: "I don't have that information in the current context."
         - Do not include any thinking, reasoning, or analysis sections in your response
-        - Keep responses brief but informative
-
-        **User Profile:**  
-        {user_profile_section}  
-
-        **Product Context:**  
-        {context}  
+        
+        Summarize the answer in few sentences unless the user asks for more details.
 
         **User's Question:**  
         {question}  
@@ -62,7 +61,6 @@ class ProductAgent(BaseAgent):
         self.set_memory_key(f"chat_history_{product_id}")
         
         context["product_info"] = self._format_product_info(product_doc)
-        print(context["product_info"])
         context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
         
         # Use the chain
@@ -83,11 +81,17 @@ class ProductAgent(BaseAgent):
                 citations.extend(chunk_citations)
                 
             if content.strip():
-                yield ResponseFormatter.format_chunk(content)
+                formatted_chunk = ResponseFormatter.format_chunk(content)
+                yield formatted_chunk
+                
+                # If there are remaining chunks, send those too
+                if "remaining_chunks" in formatted_chunk:
+                    for chunk in formatted_chunk["remaining_chunks"]:
+                        yield ResponseFormatter.format_chunk(chunk)
         
         # After content is done, send citations
         if citations:
-            yield ResponseFormatter.format_citation('\n\n---\n\nTo learn more, you can refer to these sources:\n')
+            yield ResponseFormatter.format_citation('\n\nTo learn more, you can refer to these sources:\n')
             
             for i, url in enumerate(citations, 1):
                 domain = re.search(r'https?://(?:www\.)?([^/]+)', url)
