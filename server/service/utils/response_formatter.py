@@ -10,11 +10,19 @@ class MessageType(Enum):
 
 class ResponseFormatter:
     @staticmethod
-    def chunk_content(content: str) -> List[str]:
+    def chunk_content(content: str, in_think_section: bool = False) -> Tuple[List[str], bool]:
         """
         Split content into meaningful chunks using regex patterns.
-        Returns a list of chunks that preserve markdown formatting.
+        Returns a tuple of (chunks list, updated think section state).
         """
+        # Check and update think section state
+        if '<think>' in content:
+            return [], True
+        elif '</think>' in content:
+            return [], False
+        elif in_think_section:
+            return [], True
+            
         # Define regex patterns for splitting
         patterns = [
             r'(?<=\.\s)',      # After periods with space
@@ -51,7 +59,8 @@ class ResponseFormatter:
                 (re.search(split_pattern, current_chunk) or 
                  re.search(r'#+ .*\n', current_chunk))
             ):
-                result.append(current_chunk)
+                if current_chunk.strip():
+                    result.append(current_chunk)
                 current_chunk = ''
                 
         # Add any remaining content
@@ -66,11 +75,14 @@ class ResponseFormatter:
         Format a single chunk of content.
         Now supports both direct content and chunked content.
         """
+        
         chunks = ResponseFormatter.chunk_content(content)
-        if len(chunks) <= 1:
+        if len(chunks) <= 5:
+            # Join filtered chunks instead of using original content
+            filtered_content = ''.join(chunks)
             return {
                 "type": MessageType.CHUNK.value,
-                "content": content
+                "content": filtered_content
             }
         
         # Return first chunk, queue others for next iterations

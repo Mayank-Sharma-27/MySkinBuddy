@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Generator, List, Optional, AsyncGenerator
 from langchain_community.chat_models import ChatPerplexity
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationSummaryBufferMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
@@ -41,10 +41,14 @@ class BaseAgent(ABC):
         
     def _init_memory(self, memory_key: str):
         """Initialize memory with a specific key"""
-        self.memory = ConversationBufferMemory(
+        self.memory = ConversationSummaryBufferMemory(
             memory_key=memory_key,
             return_messages=True,
-            output_key="output"
+            output_key="output",
+            ai_prefix="Expert",
+            human_prefix="User",
+            max_token_limit=250,
+            llm=self.model
         )
 
     def set_memory_key(self, key: str):
