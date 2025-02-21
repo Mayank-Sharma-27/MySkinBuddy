@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 const loadingPhases = [
-  "Reading product info...",
-  "Analyzing your question...",
-  "Searching relevant details...",
-  "Composing response...",
+  "I am reading about the product",
+  "I am trying to understand its ingredients",
+  "I am finding any relevant information",
+  "Just collecting up everything",
 ];
 
 export function SmartLoadingIndicator() {
@@ -14,18 +14,33 @@ export function SmartLoadingIndicator() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentPhase((prev) => (prev + 1) % loadingPhases.length);
-    }, 4000); // Change phase every 2 seconds
+      setCurrentPhase((prev) =>
+        prev < loadingPhases.length - 1 ? prev + 1 : prev
+      );
+    }, 1500); // Change phase every 4 seconds
 
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="flex flex-col items-start space-y-2 text-sm text-gray-600 animate-pulse">
-      <div className="flex items-center space-x-2">
-        <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-        <span>{loadingPhases[currentPhase]}</span>
-      </div>
+    <div className="flex flex-col items-start space-y-4">
+      {loadingPhases.map((phase, index) => (
+        <div
+          key={index}
+          className={`flex items-center space-x-3 ${
+            index <= currentPhase ? "text-gray-900" : "text-gray-400"
+          }`}
+        >
+          <div
+            className={`w-2 h-2 rounded-full ${
+              index <= currentPhase ? "bg-primary-500" : "bg-gray-300"
+            }`}
+          />
+          <span className={index === currentPhase ? "animate-pulse" : ""}>
+            {phase}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
