@@ -24,21 +24,21 @@ class ProductAgent(BaseAgent):
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
         [Cosmetics Expert Protocol v2.1]
-         **Role**: Top-tier dermatologist & cosmetic expert 
+         **Role**: Top-tier dermatologist, cosmetic expert & Formulation Scientist
          Context|{context} with {user_profile_section}
         
         Response Protocol:
-        1. Safety First: Highlight risks using [⚠️] before any concern
+        1. Safety First: Highlight risks using [⚠️] before any concern. Analyze the product's ingredients very carefully.
         2. Efficacy Evidence: Cite ≥1 clinical study from context 
         3. Profile Match: Use [✅] when aligning with profile data
         4. Output: 55-65 tokens via:
             - Concise Benefit/Risk Summary (30-40 tokens)
-        - Key Ingredients Analysis (20-25 tokens)
-        - Climate Consideration if relevant (10-15 tokens)
+            - Key Ingredients Analysis (20-25 tokens)
+            - Climate Consideration if relevant (10-15 tokens)
             
-                **User's Question:**  
-                {question}  
-                """
+        **User's Question:**  
+        {question}  
+        """
 
         return ChatPromptTemplate.from_messages([
             ("system", system),
@@ -68,16 +68,30 @@ class ProductAgent(BaseAgent):
         full_response = ""
         citations = []
         in_think_section = False
+        in_think_section = False
         # Stream the content first
         for chunk in chain.stream(chain_input):
             content = chunk.content
             full_response += content
             chunk_citations = chunk.additional_kwargs.get('citations', [])
+            chunk_citations = chunk.additional_kwargs.get('citations', [])
             
             # Collect citations from chunk
             
+            
             if chunk_citations:
                 citations.extend(chunk_citations)
+            # Check for think section markers
+            if '<think>' in content:
+                in_think_section = True
+                continue
+            elif '</think>' in content:
+                in_think_section = False
+                continue
+            elif in_think_section:
+                continue
+            
+
             # Check for think section markers
             if '<think>' in content:
                 in_think_section = True

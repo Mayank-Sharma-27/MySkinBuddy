@@ -5,6 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 from pinecone import Pinecone, ServerlessSpec
 import re
 from service.embeddings import pinecone_vector_store
+from typing import Dict
 load_dotenv()
         
 template = """
@@ -35,7 +36,7 @@ def find_product_with_retriever(product_name: str, offset: int = 0, limit: int =
         search_query = f"Search this product: {normalized_query}"
         # Fetch extra results to ensure we have enough after filtering
         search_results = pinecone_vector_store.similarity_search_with_relevance_scores(
-            normalized_query,
+            search_query,
             k=offset + limit
         )
         
@@ -43,15 +44,14 @@ def find_product_with_retriever(product_name: str, offset: int = 0, limit: int =
         results = []
         for doc, score in search_results[offset:offset + limit]:
             # Print the full document metadata to inspect available fields
-            print("Document metadata:", doc.metadata)
+            
             
             product_entry = {
                 "product": doc.metadata.get("product"),
                 "brand": doc.metadata.get("brand"),
                 "product_id": doc.metadata.get("product_id"),
                 "image_url": doc.metadata.get("image_url"),
-                "source": doc.metadata.get("source"),
-                "ingredients": doc.metadata.get("ingredients", [])  # Add ingredients field
+                "ingredients": get_product_ingredients(doc)  # Add ingredients field
             }
             print("Product entry:", product_entry)  # Print formatted entry
             results.append(product_entry)
@@ -88,14 +88,14 @@ def get_product_suggestions(query: str, offset: int = 0, limit: int = 20):
         for doc, score in search_results:
             product_name = doc.metadata.get("product", "")
             brand_name = doc.metadata.get("brand", "")
-            source = doc.metadata.get("source", "")
             product_id = doc.metadata.get("product_id", "")
             image_url = doc.metadata.get("image_url", "")
+            ingredients = get_product_ingredients(doc)
             
             if not product_name:
                 continue
 
-            product_key = f"{brand_name}:{product_name}".lower()
+            product_key = product_id
             if product_key in seen_products:
                 continue
                 
@@ -115,7 +115,7 @@ def get_product_suggestions(query: str, offset: int = 0, limit: int = 20):
                 "text_score": text_similarity,
                 "vector_score": score,
                 "starts_with": product_matches or brand_matches,
-                "source": source,
+                "ingredients": ingredients,
                 "image_url": image_url
             }
             
@@ -145,7 +145,8 @@ def get_product_suggestions(query: str, offset: int = 0, limit: int = 20):
                     "brand": sugg["brand"]
                 },
                 "image_url": sugg["image_url"],
-                "product_id": sugg["product_id"]
+                "product_id": sugg["product_id"],
+                "ingredients": sugg["ingredients"]
             })
 
         return results
@@ -153,4 +154,22 @@ def get_product_suggestions(query: str, offset: int = 0, limit: int = 20):
     except Exception as e:
         print(f"Error getting suggestions: {str(e)}")
         return []
+    
+def get_product_ingredients(product_doc):
+    """
+    Extract ingredients from a LangChain Document object
+    """
+    content = product_doc.page_content
+    metadata = product_doc.metadata
+    print("Content", content)
+    
+    ingredients = None
+    
+    if content:
+        if "Notable Ingredients:" in content:
+            ingredients_section = content.split("Notable Ingredients:")[1].split(".")[0]
+            ingredients = [i.strip() for i in ingredients_section.split(",")]
+        
+    return ingredients
+        
 

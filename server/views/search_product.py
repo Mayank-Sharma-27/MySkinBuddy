@@ -6,12 +6,6 @@ search_product_route = Blueprint('search_product', __name__)
 
 @search_product_route.route('/search-products', methods=['GET'])
 def search_products():
-    cookie_id = request.headers.get('X-Cookie-ID')
-    
-    # Check message limit
-    limit_status = check_message_limit(cookie_id)
-    if limit_status:
-        return jsonify(limit_status), 403
     
     product = request.args.get('product')
     offset = int(request.args.get('offset', 0))
@@ -25,12 +19,6 @@ def search_products():
     
 @search_product_route.route('/product-suggestions', methods=['GET'])
 def product_suggestions_route():
-    cookie_id = request.headers.get('X-Cookie-ID')
-    
-    # Check message limit
-    limit_status = check_message_limit(cookie_id)
-    if limit_status:
-        return jsonify(limit_status), 403
     
     query = request.args.get('q', '')
     offset = int(request.args.get('offset', 0))

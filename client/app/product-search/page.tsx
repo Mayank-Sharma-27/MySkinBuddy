@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Container } from "../components/ui/Container";
 import Navbar from "../components/Navbar";
 import { Footer } from "../components/Footer";
@@ -17,6 +17,7 @@ interface Product {
   product: string;
   brand: string;
   image_url: string;
+  ingredients: string[] | null | undefined;
 }
 
 export default function ProductSearch() {
@@ -29,11 +30,13 @@ export default function ProductSearch() {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const LIMIT = 20;
+  const initialSearchRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (productQuery) {
+    if (productQuery && initialSearchRef.current !== productQuery) {
       setInitialSearchTerm(decodeURIComponent(productQuery));
       setHasMore(true);
+      initialSearchRef.current = productQuery;
       performSearch(productQuery, true);
     }
   }, [productQuery]);
@@ -157,13 +160,25 @@ export default function ProductSearch() {
                   </div>
                   <div className="flex-1">
                     <div className="flex flex-col sm:flex-row justify-between items-center sm:items-start text-center sm:text-left">
-                      <div>
+                      <div className="w-full">
                         <div className="text-base text-gray-600 font-medium">
                           {product.brand}
                         </div>
-                        <h3 className="text-lg font-semibold text-primary-600 mt-1">
+                        <h3 className="text-lg font-semibold text-[#9333EA] mt-1">
                           {product.product}
                         </h3>
+                        {product.ingredients?.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {product.ingredients.map((ingredient, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 text-sm rounded-full bg-[#FAF5FF] text-[#9333EA]"
+                              >
+                                {ingredient}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -182,6 +197,14 @@ export default function ProductSearch() {
                       <div className="flex-1 space-y-2 text-center sm:text-left">
                         <div className="h-5 bg-gray-200 rounded w-24 mx-auto sm:mx-0"></div>
                         <div className="h-6 bg-gray-200 rounded w-3/4 mx-auto sm:mx-0"></div>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {[...Array(3)].map((_, j) => (
+                            <div
+                              key={j}
+                              className="h-6 w-20 bg-gray-200 rounded-full"
+                            ></div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ))}

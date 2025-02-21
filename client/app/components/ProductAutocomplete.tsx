@@ -22,6 +22,7 @@ interface Product {
   };
   product_id: string;
   image_url: string;
+  ingredients?: string[];
 }
 
 interface ProductAutoCompleteProps {
@@ -382,23 +383,54 @@ export const ProductAutoComplete = ({
                   id={`option-${index}`}
                   aria-selected={activeIndex === index}
                 >
-                  <div className="flex-shrink-0 w-16 h-16 relative">
-                    <Image
-                      src={product.image_url}
-                      alt={product.value.product}
-                      fill
-                      className="rounded-lg object-cover"
-                      sizes="(max-width: 64px) 100vw, 64px"
-                    />
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0 w-16 h-16 relative">
+                      <Image
+                        src={product.image_url}
+                        alt={product.value.product}
+                        fill
+                        className="rounded-lg object-cover"
+                        sizes="(max-width: 64px) 100vw, 64px"
+                      />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm text-gray-500 truncate">
+                        {product.value.brand}
+                      </span>
+                      <span className="font-medium text-gray-900 truncate">
+                        {product.value.product}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-medium text-gray-900 truncate">
-                      {product.value.product}
-                    </span>
-                    <span className="text-sm text-gray-500 truncate">
-                      {product.value.brand}
-                    </span>
-                  </div>
+                  {product.ingredients &&
+                    Array.isArray(product.ingredients) &&
+                    product.ingredients.length > 0 &&
+                    product.ingredients.some(
+                      (ingredient) => ingredient && ingredient.trim()
+                    ) && (
+                      <div className="flex items-center gap-2 justify-end ml-2">
+                        <span
+                          className="text-gray-400 text-sm"
+                          title="Ingredients"
+                        >
+                          🧪
+                        </span>
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {product.ingredients
+                            .filter(
+                              (ingredient) => ingredient && ingredient.trim()
+                            )
+                            .map((ingredient, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 text-xs rounded-full bg-[#FAF5FF] text-[#9333EA] truncate"
+                              >
+                                {ingredient}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               ))
             ) : (
