@@ -23,25 +23,22 @@ class ProductAgent(BaseAgent):
         
     def _get_chat_template(self) -> ChatPromptTemplate:
         system = """
-        You are an elite cosmetic formulation scientist and dermatologist with extensive expertise in skincare. Your role is to provide accurate, concise advice about skincare products and their ingredients.
-        The product with the context that you are going to analyze is  {context}. The user is asking you a question about the product.
-        Understand  the user's questions and answer based on the user's skin care profile information if present in {user_profile_section} .
-        <thinking>
-        Consider the user's question carefully in the context of the product and the user's skin care profile. Take pride in providing a thorough answer demonstrating your deep understanding of the material and commitment to excellence.
-        </thinking>
-        **Guidelines:**  
-        - Give direct, practical answers without explaining your analysis process
-        - Focus on relevant ingredients and their specific benefits/concerns
-        - Keep responses brief but scientifically accurate
-        - If a question is outside skincare, reply: "I specialize in skincare product recommendations."  
-        - If you cannot find relevant information, simply say: "I don't have that information in the current context."
-        - Do not include any thinking, reasoning, or analysis sections in your response
+        [Cosmetics Expert Protocol v2.1]
+         **Role**: Top-tier dermatologist & cosmetic expert 
+         Context|{context} with {user_profile_section}
         
-        Summarize the answer in few sentences unless the user asks for more details.
-
-        **User's Question:**  
-        {question}  
-        """
+        Response Protocol:
+        1. Safety First: Highlight risks using [⚠️] before any concern
+        2. Efficacy Evidence: Cite ≥1 clinical study from context 
+        3. Profile Match: Use [✅] when aligning with profile data
+        4. Output: 55-65 tokens via:
+            - Concise Benefit/Risk Summary (30-40 tokens)
+        - Key Ingredients Analysis (20-25 tokens)
+        - Climate Consideration if relevant (10-15 tokens)
+            
+                **User's Question:**  
+                {question}  
+                """
 
         return ChatPromptTemplate.from_messages([
             ("system", system),
@@ -70,15 +67,28 @@ class ProductAgent(BaseAgent):
         # Track full response and citations
         full_response = ""
         citations = []
+        in_think_section = False
         # Stream the content first
         for chunk in chain.stream(chain_input):
             content = chunk.content
             full_response += content
+            chunk_citations = chunk.additional_kwargs.get('citations', [])
             
             # Collect citations from chunk
-            chunk_citations = chunk.additional_kwargs.get('citations', [])
+            
             if chunk_citations:
                 citations.extend(chunk_citations)
+            # Check for think section markers
+            if '<think>' in content:
+                in_think_section = True
+                continue
+            elif '</think>' in content:
+                in_think_section = False
+                continue
+            elif in_think_section:
+                continue
+            
+
                 
             if content.strip():
                 formatted_chunk = ResponseFormatter.format_chunk(content)
