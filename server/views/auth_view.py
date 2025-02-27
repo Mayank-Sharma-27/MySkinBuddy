@@ -15,7 +15,6 @@ def handle_auth_error(func):
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         except Exception as e:
-            print(f"Authentication error: {str(e)}")
             return jsonify({"error": "Internal server error"}), 500
     return wrapper
 
@@ -132,7 +131,6 @@ def check_periodic_limit():
         return jsonify({'status': 'ok'})
         
     except Exception as e:
-        print(f"Error checking periodic message limit: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 def register(app, options=None):

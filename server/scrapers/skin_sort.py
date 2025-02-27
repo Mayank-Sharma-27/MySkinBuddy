@@ -442,10 +442,10 @@ def get_product_data(html_content: bytes) -> dict:
 
 
     # Find the at_a_glance section
-    at_a_glance = soup.find('section', id='at_a_glance')
-    if at_a_glance:
+    overview = soup.find('section', id='at_a_glance')
+    if overview:
         # Find all h3 headers first
-        subsection_headers = at_a_glance.find_all('h3', class_='text-sm font-semibold text-warm-gray-800')
+        subsection_headers = overview.find_all('h3')
         
         for header in subsection_headers:
             header_text = ''.join(header.text.split()).lower()
@@ -456,12 +456,12 @@ def get_product_data(html_content: bytes) -> dict:
                 continue
                 
             # Find the content div that follows the header
-            content_div = subsection.find('div', class_='text-warm-gray-500 text-xs font-normal flex flex-wrap gap-2 mt-1')
+            content_div = subsection.find('div')
             if not content_div:
                 continue
                 
             # Process based on section type
-            if header_text == 'notableingredients':
+            if header_text == 'notableingredients' or header_text == 'keyingredients':
                 for button in content_div.find_all('button'):
                     span = button.find('span', class_='font-semibold')
                     if span and span.text.strip() != 'Got it!':
@@ -496,7 +496,15 @@ def get_product_data(html_content: bytes) -> dict:
                             except ValueError:
                                 pass
                         result['concerns'].append(concern_data)
-
+                        
+    h2_elements = soup.find_all("h2")
+    
+    for h2 in h2_elements:
+        header_text_for_g2 = ''.join(h2.text.split()).lower()
+        if "whereit'sfrom" == header_text_for_g2:
+            where_it_from = h2.find_next("p")
+            if where_it_from:
+                result["where_it_from"] = where_it_from.text.strip()
     # Extract brand and product name
     product_header = soup.find('h1', class_='px-4')
     if product_header:
@@ -510,8 +518,6 @@ def get_product_data(html_content: bytes) -> dict:
             
             # Second span contains the product name
             result["product"] = spans[1].text.strip()
-            
-            print(f"Found brand: {result['brand']}, product: {result['product']}")
         else:
             print(f"Expected 2 spans, found {len(spans)} in product header")
             result["brand"] = ""
@@ -547,13 +553,14 @@ def get_product_pricing(html_content: bytes) -> dict:
             retailer_info["logo_url"] = img.get('src', '')
         
         # Get price if available
-        price_span = link.find('span', class_='text-sm')
-        if price_span:
-            price_text = price_span.text.strip()
-            try:
-                retailer_info["price"] = float(price_text.replace('$', '').replace(',', ''))
-            except (ValueError, TypeError):
-                retailer_info["price"] = None
+        price_span = link.find('span')
+        for span in price_span:
+            if "$" in span.text.strip():
+                price_text = span.text.strip()
+                try:
+                    retailer_info["price"] = float(price_text.replace('$', '').replace(',', ''))
+                except (ValueError, TypeError):
+                    retailer_info["price"] = None
         
         # Get action text (Buy/Check price/Search on Amazon)
         action_span = link.find('span', class_='bg-emerald-100')

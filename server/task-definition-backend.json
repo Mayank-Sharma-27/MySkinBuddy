@@ -70,6 +70,10 @@
                 {
                     "name": "PPLX_API_KEY",
                     "valueFrom": "/myskinbuddy/PPLX_API_KEY"
+                },
+                {
+                    "name": "GOOGLE_VISION_CREDENTIALS",
+                    "valueFrom": "google/vision-api-credentials"
                 }
             ],
             "logConfiguration": {
@@ -87,5 +91,6 @@
     "cpu": "256",
     "memory": "512",
     "executionRoleArn": "arn:aws:iam::117669335220:role/MySkinBuddyECSTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::117669335220:role/MySkinBuddyECSTaskRole",
     "volumes": []
 }

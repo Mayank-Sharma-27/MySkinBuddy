@@ -8,6 +8,7 @@ from langchain.schema import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from ..embeddings import pinecone_vector_store, embeddings
 from ..utils.response_formatter import format_agent_response
+from ..model_service import llm
 
 import os 
 
@@ -20,16 +21,7 @@ class BaseAgent(ABC):
     """
     
     def __init__(self):
-        # Initialize model without streaming
-        self.model = ChatPerplexity(
-            model="sonar-reasoning",
-            temperature=1,
-            pplx_api_key=api_key
-        )
-        
-        # Initialize memory with a default key
-        self._init_memory("chat_history")
-        
+        # Initialize embeddings and vector store
         self.embeddings = embeddings
         self.vector_store = pinecone_vector_store
         
@@ -39,6 +31,8 @@ class BaseAgent(ABC):
             search_kwargs={"k": 3}
         )
         
+        self.model = llm
+            
     def _init_memory(self, memory_key: str):
         """Initialize memory with a specific key"""
         self.memory = ConversationSummaryBufferMemory(
@@ -55,7 +49,7 @@ class BaseAgent(ABC):
         """Set a new memory key and reinitialize memory"""
         self._init_memory(key)
         
-    def setup_chain(self):
+    def setup_chain(self, context: Dict):
         """Setup the RAG chain with memory"""
         template = self._get_chat_template()
         
@@ -116,7 +110,7 @@ class BaseAgent(ABC):
         Returns:
             Optional[Dict]: New insights to add to context, if any
         """
-        return None 
+        return None
 
     def format_response(self, response) -> str:
         """Format the model's response using the common formatter"""
@@ -127,6 +121,6 @@ class BaseAgent(ABC):
         """Combine inputs for the chain"""
         return {
             "question": question,
-            "context": context.get("product_info", ""),
+            "context": context.get("relevant_context", context.get("product_info", "")),
             "user_profile_section": context.get("user_profile_section", ""),
         } 

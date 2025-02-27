@@ -7,6 +7,7 @@ from service.chat_service import ChatService
 from service.s3_client import get_s3_client
 from service.embeddings import pinecone_vector_store
 from service.user_profile import UserProfileService
+from service.embeddings  import index
 
 duckduckgo = DDGS(timeout=20)
 load_dotenv()
@@ -18,6 +19,7 @@ FOLDER_NAME = "chats"
 s3_client = get_s3_client()
 chat_service = ChatService()
 user_profile_service = UserProfileService()
+
 class ContextBuilder:
     def __init__(self):
         self.chat_service = ChatService()
@@ -51,34 +53,32 @@ def get_initial_context(product_id: str):
         try:
             response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
             context = json.loads(response['Body'].read().decode('utf-8'))
-            print(f"✅ Found cached context in S3 for product: {product_id}")
             return context
         except s3_client.exceptions.NoSuchKey:
             print(f"🔍 No cached context found in S3 for product: {product_id}")
         
-        producut_id_int = int(product_id)
-        # Get product document from Pinecone
-        product_filter = {
-            "product_id": producut_id_int,
-            "type": "product_overview"
-        }
+        product_id_int = int(product_id)
         
-        product_docs = pinecone_vector_store.search(
-            "",  # Empty query to get exact match
-            k=1,
-            filter=product_filter,
-            search_type="similarity"
+        # Query Pinecone directly with product_id filter
+        query_response = index.query(
+            vector=[0] * 1536,  # Dummy vector since we're only using filter
+            top_k=1,
+            filter={
+                "product_id": product_id_int,
+                "type": "product_overview"
+            },
+            include_metadata=True
         )
         
-        if not product_docs:
+        if not query_response.matches:
             raise ValueError(f"Product not found: {product_id}")
+            
+        product_metadata = query_response.matches[0].metadata
         
-        product_doc = product_docs[0]
-        # Convert Document object to serializable dict
+        # Format context with metadata
         context = {
             "product": {
-                "page_content": product_doc.page_content,
-                "metadata": product_doc.metadata
+                "metadata": product_metadata
             }
         }
         
@@ -90,9 +90,8 @@ def get_initial_context(product_id: str):
                 Body=json.dumps(context),
                 ContentType='application/json'
             )
-            print(f"✅ Cached context in S3 for product: {product_id}")
         except Exception as e:
-            print(f"⚠️ Failed to cache context in S3: {str(e)}")
+            print(f"❌ Error caching context: {str(e)}")
             
         return context
         

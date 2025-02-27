@@ -80,6 +80,7 @@ class UserProfileService:
                             }
                         })
                         self.cookie_service.save_cookie_data(cookie_id, cookie_data)
+                        self._save_to_s3(f"users/{user_email}/user_info.json", user_info)
             except Exception as cookie_error:
                 print(f"Error updating cookie with profile: {str(cookie_error)}")
                 # Continue even if cookie update fails
@@ -92,6 +93,7 @@ class UserProfileService:
     def get_user_info(self, cookie_id: str) -> Optional[Dict]:
         """Get user profile information"""
         try:
-            return self.cookie_service.get_cookie_data(cookie_id).get("user_profile")
+            user_email = self.auth_service.get_user_email(cookie_id)
+            return self._get_from_s3(f"users/{user_email}/user_info.json")
         except Exception as e:
             return {}

@@ -124,7 +124,6 @@ def format_agent_response(response) -> Dict:
         Dict containing formatted content and metadata
     """
     content = response.content
-    print("Printing response")
     citations = response.additional_kwargs.get('citations', [])
     
     # Remove think section

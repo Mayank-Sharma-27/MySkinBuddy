@@ -11,8 +11,9 @@ from langchain_core.documents import Document
 import re
 from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import hashlib
 import time
+import cloudscraper
+
 
 load_dotenv()
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
@@ -203,7 +204,174 @@ def create_product_embeddings():
     except Exception as e:
         print(f"Error in main processing loop: {e} with {processed_documents} documents")
 
+def rescrape_products():
+    """
+    Re-scrapes all products in our database to update their information.
+    Process:
+    1. Get all product IDs from Pinecone
+    2. Process each product one by one
+    3. Re-scrape and update data
+    """
+    try:
+        total_processed = 0
+        target_products = 70000  # Total number of products to process
+        
+        scraper = cloudscraper.create_scraper()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Connection": "keep-alive",
+        }
+        base_url = "https://skinsort.com"
 
-#create_product_embeddings()
+        # Get all vector IDs first
+        print("Fetching all vector IDs...")
+        pagination_token = None
+        batch_size = 100  # Number of IDs to fetch per page
+        
+        while total_processed < target_products:
+            # Get next batch of IDs
+            list_response = index.list_paginated(
+                limit=batch_size,
+                pagination_token=pagination_token,
+                namespace=''
+            )
+             
+            # Process this batch of IDs
+            for vector in list_response.vectors:
+                vector_id = vector.id
+                try:
+                    if total_processed >= target_products:
+                        print("Reached target number of products")
+                        break
+
+                    # Fetch single vector
+                    fetch_response = index.fetch(ids=[vector_id])
+                    if not fetch_response.vectors or vector_id not in fetch_response.vectors:
+                        print(f"Could not fetch vector {vector_id}")
+                        continue
+
+                    vector = fetch_response.vectors[vector_id]
+                    metadata = vector.metadata
+                    source = metadata.get('source', '')
+                    
+                    if not source:
+                        print(f"No source found for product {metadata.get('product', 'unknown')}")
+                        continue
+                        
+                    # Skip if where_it_from already exists in metadata
+                    if metadata.get('where_it_from'):
+                        print(f"Skipping product {metadata.get('product')} - already has where_it_from data")
+                        total_processed += 1
+                        continue
+                    
+                    # Remove the .json extension and get the product path
+                    product_path = '/'.join(source.split('/')[:-1])
+                    if not product_path:
+                        continue
+                        
+                    print(f"Processing product: {product_path}")
+                    
+                    # Check if the URL ends with /dupes
+                    if product_path.endswith('/dupes'):
+                        print(f"Deleting dupe document with ID: {vector_id}")
+                        index.delete(ids=[vector_id])
+                        total_processed += 1
+                        continue
+                        
+                    # Construct the full URL
+                    url = f"{base_url}/{product_path}"
+                    
+                    # Get the product data
+                    page_response = scraper.get(url, headers=headers)
+                    html_content = page_response.content
+                    
+                    # Get product data using the HTML content
+                    #product_data = get_product_data(html_content)
+                    pricing_response = scraper.get(url + "/vendors", headers=headers)
+                    #pricing_data = get_product_pricing(pricing_response.content)
+                    pricing_data = {}
+                    product_data = {}
+                    
+                    princing_information = ""
+                    pricing = []
+                    for r in pricing_data.get('retailers', []):
+                        if r.get('price') is not None:
+                            princing_information += f"{r.get('retailer')}: ${r.get('price')}, "
+                            pricing.append({
+                                "retailer": r.get('retailer'),
+                                "price": r.get('price'),
+                                "url": r.get('url')
+                            })
+                    
+                    if not product_data.get('brand') or not product_data.get('product'):
+                        print(f"Missing brand or product name for {url}")
+                        continue
+                    
+                    # Update the vector store with new data
+                    main_content = (
+                        f"Product: {product_data['product']}. Brand: {product_data['brand']}. "
+                        f"Notable Ingredients: {', '.join(product_data.get('notable_ingredients', []))}. "
+                        f"Benefits: {', '.join(b['benefit_name'] for b in product_data.get('benefits', []))}. "
+                        f"Concerns: {', '.join(c['concern_name'] for c in product_data.get('concerns', []))}. "
+                        f"Where it's from: {product_data.get('where_it_from')}. "
+                        f"All Ingredients: {', '.join(ingredient['ingredient_name'] for ingredient in product_data.get('ingredients_overview', []))}. "
+                        f"Pricing Information: {princing_information}"
+                    )
+                    
+                    # Create metadata dictionary
+                    metadata = {
+                        "product": product_data['product'],
+                        "brand": product_data['brand'],
+                        "type": "product_overview",
+                        "source": source,
+                        "product_id": metadata.get('product_id'),
+                        "image_url": metadata.get('image_url'),
+                        "where_it_from": product_data.get('where_it_from') or "Unknown",
+                        "notable_ingredients": product_data.get('notable_ingredients', []) or "Unknown",
+                        "benefits": [b['benefit_name'] for b in product_data.get('benefits', [])] or "Unknown",
+                        "concerns": [c['concern_name'] for c in product_data.get('concerns', [])] or "Unknown",
+                        "pricing_info": princing_information or "Unknown",
+                        "ingredients": [ingredient['ingredient_name'] for ingredient in product_data.get('ingredients_overview', [])] or "Unknown"
+                    }
+                    
+                    # Generate vector for the content
+                    vector = embeddings.embed_query(main_content)
+                    
+                    # Update the vector
+                    index.upsert(
+                        vectors=[{
+                            'id': vector_id,
+                            'values': vector,
+                            'metadata': metadata
+                        }]
+                    )
+                    total_processed += 1
+                    print(f"Updated product: {product_data['product']} by {product_data['brand']} total processed: {total_processed}")
+                    
+                    # Sleep briefly to avoid rate limiting
+                    time.sleep(0.1)
+                    
+                except Exception as e:
+                    print(f"Error processing product {source}: {str(e)}")
+                    continue
+
+            # Get pagination token for next batch
+            pagination_token = list_response.pagination.next
+            if not pagination_token:
+                print("No more pages to process")
+                break
+                
+            # Sleep briefly between batches
+            time.sleep(0.5)
+
+        print(f"Completed processing. Total products processed: {total_processed}")
+            
+    except Exception as e:
+        print(f"Error in main processing loop: {str(e)}")
+        print(f"Processed {total_processed} products before error")
+
+#rescrape_products()
 #create_ingredient_embeddings()
                         

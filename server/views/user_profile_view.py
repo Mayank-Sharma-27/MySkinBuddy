@@ -22,7 +22,6 @@ def require_auth(func):
                 
             return func(user_email, *args, **kwargs)
         except Exception as e:
-            print(f"Authentication error: {str(e)}")
             return jsonify({"error": "Internal server error"}), 500
     return wrapper
 
@@ -49,7 +48,6 @@ def save_profile(user_email):
         )
         return jsonify(result)
     except Exception as e:
-        print(f"Error saving profile: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 @user_profile_view.route('/profile', methods=['GET'])
@@ -67,7 +65,6 @@ def get_profile(user_email):
             })
         return jsonify(user_info)
     except Exception as e:
-        print(f"Error getting profile: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 def register(app, options=None):
