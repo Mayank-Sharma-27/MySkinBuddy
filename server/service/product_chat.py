@@ -56,41 +56,55 @@ class ProductChat:
         self.context_builder = ContextBuilder()
         self.agent_coordinator = AgentCoordinator()
 
-    def _check_content_relevance(self, message: str, chat_history: list) -> bool:
+    def _create_welcome_message(self, product_metadata: dict) -> str:
         """
         Check if the message content is relevant to skincare topics.
         Returns True if content is relevant, False otherwise.
         """
-        # Get last 10 messages for context
-        recent_history = chat_history[-10:] if len(chat_history) > 10 else chat_history
+        product_name = product_metadata.get("product")
+        brand_name = product_metadata.get("brand")
         
-        # Format chat history for the prompt
-        formatted_history = "\n".join([
-            f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
-            for msg in recent_history
-        ])
+        # Create subtitle parts
+        subtitle_parts = []
+        if product_metadata.get("where_it_from") and product_metadata.get("where_it_from") != "Unknown":
+            subtitle_parts.append(f"A product of {product_metadata.get('where_it_from')}")
         
-        filter_prompt = """You are a content filter for a cosemetic website chatbot. 
-        Determine if the following question is related to skincare, beauty products, or skin health.
-        Consider the chat history for context when making your decision. If the chat history suggests that the user is asking about a specific product, then respond with 'RELATED'.
-        If the chat history suggests that user is not asking about skin care products but the current question is about a product, then respond with 'RELATED'.
-        If the question is not related to these topics, respond with 'UNRELATED'.
-        If it is related, respond with 'RELATED'.
+        if product_metadata.get("notable_ingredients") and product_metadata.get("notable_ingredients") != "Unknown":
+            notable_ingredients = product_metadata.get("notable_ingredients")
+            if isinstance(notable_ingredients, list) and notable_ingredients:
+                subtitle_parts.append(f"with {', '.join(notable_ingredients[:3])}")
         
-        Chat History:
-        {history}
+        subtitle = " ".join(subtitle_parts) if subtitle_parts else ""
         
-        Current Question: {question}
+        # Format product details sections
+        benefits = product_metadata.get("benefits", [])
+        benefits_text = "\n".join([f"• {benefit}" for benefit in benefits]) if benefits else "No specific benefits listed"
         
-        Response (RELATED/UNRELATED):"""
+        concerns = product_metadata.get("concerns", [])
+        concerns_text = "\n".join([f"• {concern}" for concern in concerns]) if concerns else "No specific concerns listed"
         
-        filter_response = llm.invoke(
-            filter_prompt.format(
-                history=formatted_history,
-                question=message
-            )
-        )
-        return "UNRELATED" not in filter_response.content.upper()
+        notable_ingredients = product_metadata.get("notable_ingredients", [])
+        ingredients_text = "\n".join([f"• {ingredient}" for ingredient in notable_ingredients]) if notable_ingredients else "No notable ingredients listed"
+        
+        # Construct the welcome message
+        welcome_msg = f"""Hi! I am your personalized skincare buddy. I'm here to help you with {product_name} by {brand_name}.
+
+{subtitle}
+
+**Key Product Information:**
+
+**Benefits:**
+{benefits_text}
+
+**Concerns Addressed:**
+{concerns_text}
+
+**Notable Ingredients:**
+{ingredients_text}
+
+How can I assist you today?"""
+
+        return welcome_msg
 
     def _create_welcome_message(self, product_metadata: dict) -> str:
         """
@@ -189,15 +203,6 @@ How can I assist you today?"""
             })
             self.chat_service.save_chat(cookie_id, product_id, chat_data)
             
-            # Content filtering check
-            if not self._check_content_relevance(message, chat_data.get("chat_history", [])):
-                yield ResponseFormatter.format_chunk(
-                    "I apologize, but I can only assist with questions related to skincare, beauty products, and skin health. "
-                    "Please feel free to ask me anything about these topics!"
-                )
-                yield ResponseFormatter.format_done()
-                return
-
             context = chat_data.get("preloaded_context")
             
             # Get or create context

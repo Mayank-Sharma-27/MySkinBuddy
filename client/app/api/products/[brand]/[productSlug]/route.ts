@@ -16,10 +16,6 @@ export async function GET(
   const { brand, productSlug } = params;
 
   try {
-    console.log("Fetching from S3:", {
-      bucket: process.env.AWS_BUCKET_NAME,
-      key: `products/${brand}/${productSlug}/${productSlug}.json`,
-    });
 
     const command = new GetObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME!,
@@ -34,7 +30,6 @@ export async function GET(
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    console.log("Successfully fetched product data");
     return NextResponse.json(JSON.parse(productData));
   } catch (error) {
     console.error("Error fetching product:", error);

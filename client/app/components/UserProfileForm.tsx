@@ -5,6 +5,7 @@ import {
   saveUserProfile,
 } from "../api/userProfile";
 import { Button } from "./ui/Button";
+import { useAuth } from "../contexts/AuthContext";
 
 const skinTypes = ["Normal", "Dry", "Oily", "Combination", "Sensitive"];
 
@@ -22,21 +23,31 @@ const commonSkinIssues = [
 ];
 
 export default function UserProfileForm() {
-  const [profile, setProfile] = useState<UserProfile>({
-    skin_type: "",
-    skin_issues: [],
-    additional_info: "",
-    location: "",
-  });
-  const [loading, setLoading] = useState(true);
+  const { userProfile } = useAuth();
+  const [profile, setProfile] = useState<UserProfile>(
+    userProfile || {
+      skin_type: "",
+      skin_issues: [],
+      additional_info: "",
+      location: "",
+    }
+  );
+  const [loading, setLoading] = useState(!userProfile);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (userProfile) {
+      setProfile(userProfile);
+      setLoading(false);
+    } else if (!hasAttemptedLoad) {
+      setHasAttemptedLoad(true);
+      loadProfile();
+    }
+  }, [userProfile]);
 
   const loadProfile = async () => {
     try {

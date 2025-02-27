@@ -1,5 +1,4 @@
 from typing import Dict, Generator, List
-from .base_agent import BaseAgent
 from .product_agent import ProductAgent
 from ..model_service import llm
 from langchain.prompts import ChatPromptTemplate
@@ -92,5 +91,21 @@ Only respond with the JSON, nothing else.""")
         # For now, just use the first capable agent
         agent = agents_to_use[0]
         
-        for chunk in agent.process(question, context, chat_history):
+        try:
+            self._select_model(intent["requires_realtime"])
+        except Exception as e:#
+            print(f"Error selecting model: {e}")
+            yield self._format_off_topic_response()
+            return
+        
+        for chunk in self.product_agent.process(question, context, chat_history):
             yield chunk 
+            
+    def _select_model(self, requires_realtime: bool):
+        self.product_agent.model = self.model_service.get_llm_model(requires_realtime)
+    
+    def  _format_off_topic_response(self):
+        return ResponseFormatter.format_chunk(
+                    "I apologize, but I can only assist with questions related to skincare, beauty products, and skin health. "
+                    "Please feel free to ask me anything about these topics!"
+                )

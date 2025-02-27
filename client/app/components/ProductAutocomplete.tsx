@@ -6,9 +6,9 @@ import { useDebounce } from "../hooks/useDebounce";
 import Image from "next/image";
 import { getCookieId } from "../utils/cookies";
 import { API_URL } from "../config";
-import { useMessageLimit } from "../contexts/MessageLimitContext";
 import dynamic from "next/dynamic";
 import { SearchButton } from "./ui/SearchButton";
+import { ImageUpload } from "./ImageUpload";
 
 const LoginModal = dynamic(() => import("./LoginModal"), {
   ssr: false,
@@ -23,33 +23,43 @@ interface Product {
   product_id: string;
   image_url: string;
   ingredients?: string[];
+  benefits?: string[];
+  concerns?: string[];
+  subtitle?: string;
 }
 
 interface ProductAutoCompleteProps {
   onSearch: (productName: string, brandName: string) => void;
   initialSearchTerm?: string;
   disableInitialLoad?: boolean;
+  isDescriptiveSearch?: boolean;
+  placeholder?: string;
+  userEmail?: string;
 }
 
 export const ProductAutoComplete = ({
   onSearch,
   initialSearchTerm = "",
   disableInitialLoad = false,
+  isDescriptiveSearch = false,
+  placeholder = "Search any product...",
+  userEmail,
 }: ProductAutoCompleteProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const debouncedSearchTerm = useDebounce(
+    searchTerm,
+    isDescriptiveSearch ? 500 : 300
+  );
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const { showLoginPrompt, checkMessageLimit, resetLoginPrompt } =
-    useMessageLimit();
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(1);
+  const [offset, setOffset] = useState(0);
   const LIMIT = 5;
 
   useEffect(() => {
@@ -68,19 +78,17 @@ export const ProductAutoComplete = ({
 
   useEffect(() => {
     const getSuggestions = async () => {
-      if (!debouncedSearchTerm.trim() || disableInitialLoad) {
+      if (
+        isDescriptiveSearch ||
+        !debouncedSearchTerm.trim() ||
+        disableInitialLoad
+      ) {
         setProducts([]);
         return;
       }
 
       setIsLoading(true);
       try {
-        // Check message limit before making the request
-        const canProceed = await checkMessageLimit();
-        if (!canProceed) {
-          setProducts([]);
-          return;
-        }
 
         const response = await fetch(
           `${API_URL}/product-suggestions?q=${encodeURIComponent(
@@ -113,47 +121,23 @@ export const ProductAutoComplete = ({
     };
 
     getSuggestions();
-  }, [debouncedSearchTerm, checkMessageLimit, disableInitialLoad]);
+  }, [
+    debouncedSearchTerm,
+    disableInitialLoad,
+    isDescriptiveSearch,
+  ]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      const canProceed = await checkMessageLimit();
-      if (!canProceed) return;
-
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `${API_URL}/search-products?product=${encodeURIComponent(
-            searchTerm
-          )}`,
-          {
-            headers: {
-              "X-Cookie-ID": getCookieId() || "",
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error("Search failed");
-        const data = await response.json();
-
-        // Call onSearch with the search term
-        onSearch(searchTerm, "");
-        setShowDropdown(false);
-        setSearchTerm("");
-      } catch (error) {
-        console.error("Search error:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      onSearch(searchTerm, "");
+      setShowDropdown(false);
+      setSearchTerm("");
     }
   };
 
   const handleProductSelect = async (product: Product) => {
     try {
-      const canProceed = await checkMessageLimit();
-      if (!canProceed) return;
-
       router.push(`/chat/${product.product_id}`);
     } catch (error) {
       // Handle error silently
@@ -161,6 +145,14 @@ export const ProductAutoComplete = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isDescriptiveSearch) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSubmit(e as any);
+      }
+      return;
+    }
+
     if (!showDropdown) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -199,8 +191,6 @@ export const ProductAutoComplete = ({
     if (!debouncedSearchTerm.trim() || isLoading) return;
 
     try {
-      const canProceed = await checkMessageLimit();
-      if (!canProceed) return;
 
       const response = await fetch(
         `${API_URL}/product-suggestions?q=${encodeURIComponent(
@@ -227,12 +217,18 @@ export const ProductAutoComplete = ({
     }
   };
 
-  // Reset pagination when search term changes
   useEffect(() => {
     setProducts([]);
     setOffset(1);
     setHasMore(true);
   }, [debouncedSearchTerm]);
+
+  const handleTextExtracted = (text: string) => {
+    setSearchTerm(text);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
 
   return (
     <>
@@ -262,13 +258,17 @@ export const ProductAutoComplete = ({
               onKeyDown={handleKeyDown}
               onFocus={() => {
                 setIsFocused(true);
-                setShowDropdown(true);
+                if (!isDescriptiveSearch) {
+                  setShowDropdown(true);
+                }
               }}
               onBlur={() => {
                 setIsFocused(false);
-                setTimeout(() => setShowDropdown(false), 200);
+                if (!isDescriptiveSearch) {
+                  setTimeout(() => setShowDropdown(false), 200);
+                }
               }}
-              placeholder="Search any product..."
+              placeholder={placeholder}
               className={`w-full pl-10 pr-16 py-4 rounded-2xl border-2 bg-white/80 
                        backdrop-blur-sm transition-all duration-200 outline-none
                        text-base md:text-lg
@@ -280,11 +280,15 @@ export const ProductAutoComplete = ({
                        }
                        placeholder:text-gray-400 placeholder:font-light
                        text-gray-900`}
-              role="combobox"
-              aria-expanded={showDropdown}
-              aria-controls="search-listbox"
+              role={isDescriptiveSearch ? "searchbox" : "combobox"}
+              aria-expanded={!isDescriptiveSearch && showDropdown}
+              aria-controls={
+                !isDescriptiveSearch ? "search-listbox" : undefined
+              }
               aria-activedescendant={
-                activeIndex >= 0 ? `option-${activeIndex}` : undefined
+                !isDescriptiveSearch && activeIndex >= 0
+                  ? `option-${activeIndex}`
+                  : undefined
               }
             />
             {searchTerm && (
@@ -334,7 +338,16 @@ export const ProductAutoComplete = ({
           </div>
         </form>
 
-        {showDropdown && searchTerm.length > 0 && (
+        {!isDescriptiveSearch && (
+          <div className="mt-4">
+            <ImageUpload
+              onTextExtracted={handleTextExtracted}
+              userEmail={userEmail}
+            />
+          </div>
+        )}
+
+        {!isDescriptiveSearch && showDropdown && searchTerm.length > 0 && (
           <div
             className="absolute z-10 left-0 right-0 mt-2 bg-white/80 backdrop-blur-sm 
                      rounded-xl shadow-xl border border-gray-100
@@ -370,67 +383,37 @@ export const ProductAutoComplete = ({
                 <div
                   key={product.product_id}
                   onClick={() => handleProductSelect(product)}
-                  className={`flex items-center gap-4 p-4 cursor-pointer
+                  className={`flex items-center gap-4 p-3 cursor-pointer
                            transition-colors duration-150 ease-in-out
-                           hover:bg-gray-50 active:bg-gray-100
-                           ${activeIndex === index ? "bg-gray-50" : ""}
+                           hover:bg-primary-50/50 active:bg-primary-50
+                           ${activeIndex === index ? "bg-primary-50/50" : ""}
                            ${
                              index !== products.length - 1
-                               ? "border-b border-gray-100"
+                               ? "border-b border-primary-100"
                                : ""
                            }`}
                   role="option"
                   id={`option-${index}`}
                   aria-selected={activeIndex === index}
                 >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="flex-shrink-0 w-16 h-16 relative">
-                      <Image
-                        src={product.image_url}
-                        alt={product.value.product}
-                        fill
-                        className="rounded-lg object-cover"
-                        sizes="(max-width: 64px) 100vw, 64px"
-                      />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm text-gray-500 truncate">
-                        {product.value.brand}
-                      </span>
-                      <span className="font-medium text-gray-900 truncate">
-                        {product.value.product}
-                      </span>
-                    </div>
+                  <div className="flex-shrink-0 w-16 h-16 sm:w-14 sm:h-14 relative">
+                    <Image
+                      src={product.image_url}
+                      alt={product.value.product}
+                      fill
+                      className="rounded-lg object-contain bg-white p-0.5"
+                      sizes="(max-width: 768px) 64px, 56px"
+                      priority={index < 4}
+                    />
                   </div>
-                  {product.ingredients &&
-                    Array.isArray(product.ingredients) &&
-                    product.ingredients.length > 0 &&
-                    product.ingredients.some(
-                      (ingredient) => ingredient && ingredient.trim()
-                    ) && (
-                      <div className="flex items-center gap-2 justify-end ml-2">
-                        <span
-                          className="text-gray-400 text-sm"
-                          title="Ingredients"
-                        >
-                          🧪
-                        </span>
-                        <div className="flex flex-wrap gap-1 max-w-[180px]">
-                          {product.ingredients
-                            .filter(
-                              (ingredient) => ingredient && ingredient.trim()
-                            )
-                            .map((ingredient, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 text-xs rounded-full bg-[#FAF5FF] text-[#9333EA] truncate"
-                              >
-                                {ingredient}
-                              </span>
-                            ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-sm font-medium text-primary-600 line-clamp-1">
+                      {product.value.brand}
+                    </span>
+                    <span className="text-base font-semibold text-primary-900 line-clamp-1">
+                      {product.value.product}
+                    </span>
+                  </div>
                 </div>
               ))
             ) : (
@@ -446,13 +429,6 @@ export const ProductAutoComplete = ({
           </div>
         )}
       </div>
-
-      {showLoginPrompt && (
-        <LoginModal
-          onClose={resetLoginPrompt}
-          message="Please login to continue searching products"
-        />
-      )}
     </>
   );
 };

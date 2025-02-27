@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useCookie } from "../utils/CookieProvider";
 import { API_URL } from "../config";
 import Image from "next/image";
-import { useMessageLimit } from "../contexts/MessageLimitContext";
 
 interface Chat {
   image_url: string;
@@ -18,7 +17,6 @@ interface Chat {
 export default function RecentChats() {
   const router = useRouter();
   const cookieId = useCookie();
-  const { checkMessageLimit } = useMessageLimit();
   const [chats, setChats] = useState<Chat[]>([]);
   const [displayedChats, setDisplayedChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,9 +66,6 @@ export default function RecentChats() {
 
   const handleChatSelect = async (chat: Chat) => {
     try {
-      const canProceed = await checkMessageLimit();
-      if (!canProceed) return;
-
       router.push(`/chat/${chat.product_id}`);
     } catch (error) {
       setError("Failed to open chat. Please try again.");

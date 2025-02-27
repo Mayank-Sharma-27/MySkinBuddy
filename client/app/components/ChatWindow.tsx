@@ -87,8 +87,6 @@ export function ChatWindow({
   }, [messages]);
 
   useEffect(() => {
-    console.log("ChatWindow initialChatData:", initialChatData);
-    console.log("Messages length:", messages.length);
   }, [initialChatData, messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
