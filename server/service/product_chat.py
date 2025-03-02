@@ -212,7 +212,6 @@ How can I assist you today?"""
             # Pass through formatted chunks from agent
             accumulated_response = ""
             accumulated_citations = ""
-            print("Asking coordinator")
             for chunk in self.agent_coordinator.process_question(
                 question=message,
                 context=context,

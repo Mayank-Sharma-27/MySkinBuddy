@@ -67,8 +67,6 @@ Only respond with the JSON, nothing else.""")
         # Create and run the chain
         chain = self.context_template | llm
         result = chain.invoke(prompt_input)
-        print("Got result")
-        print(result.content)
         try:
             return eval(result.content)  # Convert string JSON to dict
         except Exception as e:
