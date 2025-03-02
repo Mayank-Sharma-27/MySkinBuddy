@@ -37,7 +37,6 @@ def get_message_limit_status():
         return jsonify({'status': 'ok'})
         
     except Exception as e:
-        print(f"Error checking message limit: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @chat_view.route('/start-chat', methods=['POST'])
@@ -61,7 +60,6 @@ def start_chat():
         })
         
     except Exception as e:
-        print(f"Error in start_chat: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @chat_view.route('/chat', methods=['POST'])
@@ -79,7 +77,6 @@ def chat():
                 for chunk in product_chat.handle_message(cookie_id, product_id, user_message):
                     yield f"data: {json.dumps(chunk)}\n\n"
             except Exception as e:
-                print(f"Error in generate: {str(e)}")
                 yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
         response = Response(
@@ -94,18 +91,14 @@ def chat():
         return response
         
     except Exception as e:
-        print(f"Error in chat endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @chat_view.route('/chat/<product_id>/history', methods=['GET'])
 def get_chat_history(product_id):
     """Get chat history for a specific product using file-based pagination"""
-    print(f"Received request for chat history. Product ID: {product_id}")
     try:
         cookie_id = request.headers.get('X-Cookie-ID')
-        print(f"Cookie ID from headers: {cookie_id}")
         if not cookie_id:
-            print("No cookie ID found in headers")
             return jsonify({
                 'status': 'success',
                 'chat_data': {
@@ -119,7 +112,6 @@ def get_chat_history(product_id):
 
         # Get page number (each page is a separate file)
         file_index = request.args.get('page', default=0, type=int)
-        print(f"Page index: {file_index}")
 
         # Get chat data using chat service
         try:
@@ -130,7 +122,6 @@ def get_chat_history(product_id):
             )
         except Exception as e:
             # For any error, return empty data
-            print(f"Error fetching chat data: {str(e)}")
             return jsonify({
                 'status': 'success',
                 'chat_data': {
@@ -160,7 +151,6 @@ def get_chat_history(product_id):
         })
 
     except Exception as e:
-        print(f"Error getting chat history: {str(e)}")
         return jsonify({
             'status': 'success',
             'chat_data': {

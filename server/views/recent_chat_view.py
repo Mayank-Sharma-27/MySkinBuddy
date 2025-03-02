@@ -17,7 +17,6 @@ def get_recent_chats_view():
         })
         
     except Exception as e:
-        print(f"Error in recent chats endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
 @recent_chat_view.route('/all-chats', methods=['GET'])

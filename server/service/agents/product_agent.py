@@ -22,22 +22,37 @@ class ProductAgent(BaseAgent):
         return ["product"]
         
     def _get_chat_template(self) -> ChatPromptTemplate:
-        system = """
-        [Cosmetics Expert Protocol v2.1]
-         **Role**: Top-tier dermatologist, cosmetic expert & Formulation Scientist
-         Context|{context} with {user_profile_section}
+        system = """You are an expert skincare and cosmetics advisor providing concise, accurate answers about beauty products
         
-        Response Protocol:
-        1. Safety First: Highlight risks using [⚠️] before any concern. Analyze the product's ingredients very carefully.
-        2. Efficacy Evidence: Cite ≥1 clinical study from context 
-        3. Profile Match: Use [✅] when aligning with profile data
-        4. Output: 55-65 tokens via:
-            - Concise Benefit/Risk Summary (30-40 tokens)
-            - Key Ingredients Analysis (20-25 tokens)
-            - Climate Consideration if relevant (10-15 tokens)
-            
-        **User's Question:**  
-        {question}  
+        PRODUCT INFORMATION:
+{context}
+        
+    INSTRUCTIONS:
+        1. Answer directly what the user is asking about this specific product.
+
+        2. <think>
+        Use this section to analyze the ingredients, assess safety and efficacy, and consider user-specific factors.
+        - What specific ingredients are relevant to this question?
+        - How do they relate to the user's skin type and concerns?
+        - What scientific evidence supports or contradicts claims about these ingredients?
+        - What potential risks exist for this user profile?
+        </think>
+
+        3. FORMAT YOUR RESPONSE WITH:
+        - Direct answer addressing the specific question first
+        - Key relevant product ingredients mentioned in context 
+        - Concerns or benefits relevant to the user's profile (if available)
+        - Simple, concise language with minimal technical jargon
+        - Short paragraphs and natural sentence breaks
+        - Any key information in the response should be bolded
+
+        4. IMPORTANT:
+            - Base your response entirely on the provided product information
+            - When user profile is missing, provide general advice applicable to most skin types
+            - Acknowledge information gaps rather than making assumptions
+        
+        **Current Question:**
+        {question}
         """
 
         return ChatPromptTemplate.from_messages([
@@ -53,35 +68,37 @@ class ProductAgent(BaseAgent):
         chat_history: Optional[List[Dict]] = None
     ) -> Generator[Dict, None, None]:
         product_doc = context.get("product", {})
+        
         product_id = product_doc.get("metadata", {}).get("product_id", "default")
-        # Create product-specific memory key
+        
         self.set_memory_key(f"chat_history_{product_id}")
+        try:
+            context["product_info"] = self._format_product_info(product_doc)
+            context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
+        except Exception as e:
+            print(f"Error formatting context: {e}")
         
-        context["product_info"] = self._format_product_info(product_doc)
-        context["user_profile_section"] = self._format_user_profile(context.get("user_information", {}))
-        
-        # Use the chain
-        chain = self.setup_chain()
+            # Use the chain with context-based model initialization
+        try:
+            chain = self.setup_chain(context)
+        except Exception as e:
+            print(f"Error setting up chain: {e}")
         chain_input = self._combine_input(question, context)
         
         # Track full response and citations
         full_response = ""
         citations = []
         in_think_section = False
-        in_think_section = False
         # Stream the content first
         for chunk in chain.stream(chain_input):
             content = chunk.content
             full_response += content
-            chunk_citations = chunk.additional_kwargs.get('citations', [])
-            chunk_citations = chunk.additional_kwargs.get('citations', [])
+            if chunk.additional_kwargs.get('citations', []):
+                chunk_citations = chunk.additional_kwargs.get('citations', [])
+                citations.extend(chunk_citations)
             
             # Collect citations from chunk
-            
-            
-            if chunk_citations:
-                citations.extend(chunk_citations)
-            # Check for think section markers
+                        # Check for think section markers
             if '<think>' in content:
                 in_think_section = True
                 continue
@@ -137,50 +154,52 @@ class ProductAgent(BaseAgent):
                 {"input": question}, 
                 {"output": cleaned_response}
             )
-            logger.info("Saving to memory done")
         except Exception as e:
             logger.error(f"Error saving to memory: {str(e)}")
         
     def _format_product_info(self, product_doc: Dict) -> str:
         """Format product information for the prompt"""
-        content = product_doc.get("page_content", "")
         metadata = product_doc.get("metadata", {})
         
         # Extract product details
         product_name = metadata.get("product", "")
         brand_name = metadata.get("brand", "")
+        sections = []
+        sections.append(f"PRODUCT: {brand_name} {product_name}")
         
         # Parse the page content to extract structured information
         ingredients = []
         benefits = []
         concerns = []
-        
+        notable_ingredients = []
+        where_it_from = ""
         # Extract information from content
-        if content:
+        if metadata:
             # Extract ingredients
-            if "Notable Ingredients:" in content:
-                ingredients_section = content.split("Notable Ingredients:")[1].split(".")[0]
-                ingredients = [i.strip() for i in ingredients_section.split(",")]
+            if metadata.get("ingredients", ""):
+                ingredients = metadata.get("ingredients", "")
+                sections.append("ALL INGREDIENTS:\n• " + "\n• ".join(ingredients))
+                
             
             # Extract benefits
-            if "Benefits:" in content:
-                benefits_section = content.split("Benefits:")[1].split(".")[0]
-                benefits = [b.strip() for b in benefits_section.split(",")]
+            if metadata.get("benefits", ""):
+                benefits = metadata.get("benefits", "")
+                sections.append("BENEFITS:\n• " + "\n• ".join(benefits))
             
             # Extract concerns
-            if "Concerns:" in content:
-                concerns_section = content.split("Concerns:")[1].split(".")[0]
-                concerns = [c.strip() for c in concerns_section.split(",")]
+            if metadata.get("concerns", ""):
+                concerns = metadata.get("concerns", "")
+                sections.append("CONCERNS:\n• " + "\n• ".join(concerns))
+                
+            if metadata.get("notable_ingredients", ""):
+                notable_ingredients = metadata.get("notable_ingredients", "")
+                sections.append("KEY INGREDIENTS:\n• " + "\n• ".join(notable_ingredients))
+                
+            if metadata.get("where_it_from", ""):
+                where_it_from = metadata.get("where_it_from", "")
+                sections.append(f"ORIGIN: {where_it_from}")
         
-        # Format ingredients, benefits, and concerns
-        ingredients_text = ('• ' + '\n• '.join(ingredients)) if ingredients else 'No ingredient information available'
-        benefits_text = ('• ' + '\n• '.join(benefits)) if benefits else 'No benefits information available'
-        concerns_text = ('• ' + '\n• '.join(concerns)) if concerns else 'No concerns information available'
-        
-        # Format the information without line breaks in f-string
-        formatted_info = f"**Product Details:**\n• Brand: {brand_name}\n• Product: {product_name}\n\n**Key Ingredients:**\n{ingredients_text}\n\n**Known Benefits:**\n{benefits_text}\n\n**Potential Concerns:**\n{concerns_text}"
-        
-        return formatted_info
+        return "\n\n".join(sections)
         
     def _format_user_profile(self, user_info: Dict) -> str:
         """Format user profile information if available"""
