@@ -14,7 +14,27 @@ class ImagesService:
     def _setup_google_credentials(self):
         """Fetch Google credentials from AWS SSM Parameter Store and set them up"""
         try:
-            credentials_json = json.loads(os.getenv('GOOGLE_VISION_CREDENTIALS', '/myskinbuddy/GOOGLE_VISION_CREDENTIALS'))
+            # Check if credentials are provided as environment variable
+            if os.getenv('GOOGLE_VISION_CREDENTIALS'):
+                try:
+                    # Try to parse as JSON string
+                    credentials_json = json.loads(os.getenv('GOOGLE_VISION_CREDENTIALS'))
+                except json.JSONDecodeError:
+                    # If not a valid JSON string, treat as a file path
+                    credentials_path = os.getenv('GOOGLE_VISION_CREDENTIALS')
+                    with open(credentials_path, 'r') as f:
+                        credentials_json = json.load(f)
+            else:
+                # For local development, load from the local file
+                local_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                         'google_credentials.json')
+                if os.path.exists(local_path):
+                    with open(local_path, 'r') as f:
+                        credentials_json = json.load(f)
+                    print(f"Using local credentials from: {local_path}")
+                else:
+                    raise FileNotFoundError(f"Google credentials file not found at: {local_path}")
+                
             with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
                 json.dump(credentials_json, temp_file)
                 self.credentials_path = temp_file.name

@@ -90,10 +90,7 @@ Only respond with the JSON, nothing else.""")
         # Analyze question and get context 
         agents_to_use = []
         agents_to_use.append(self.product_agent)
-        # For now, just use the first capable agent
-        agent = agents_to_use[0]
         intent = self.intent_classifier.classify_intent(question)
-        
         try:
             self._select_model(intent["requires_realtime"])
         except Exception as e:#
@@ -101,14 +98,19 @@ Only respond with the JSON, nothing else.""")
             yield self._format_off_topic_response()
             return
         
-        for chunk in self.product_agent.process(question, context, chat_history):
-            yield chunk 
+        try:
+            for chunk in self.product_agent.process(question, context, chat_history):
+                yield chunk 
+        except Exception as e:
+            print(f"Error processing question: {e}")
+            yield self._format_off_topic_response()
+            return
             
     def _select_model(self, requires_realtime: bool):
         if requires_realtime:
-            self.product_agent.model = self.model_service.get_llm_model()
-        else:
             self.product_agent.model = self.model_service.get_perplexity_model()
+        else:
+            self.product_agent.model = self.model_service.get_llm_model()
     
     def  _format_off_topic_response(self):
         return ResponseFormatter.format_chunk(
