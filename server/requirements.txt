@@ -36,5 +36,5 @@ flask-socketio==5.3.6
 gevent==23.9.1
 gevent-websocket==0.10.1
 cloudscraper==1.2.71
-google-cloud-vision==2.15.0
+google-cloud-vision==3.10.0
 
