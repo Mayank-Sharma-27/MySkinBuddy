@@ -3,6 +3,8 @@ from .product_agent import ProductAgent
 from ..model_service import llm
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
+from ..intent_classifier import IntentClassifier
+from ..utils.response_formatter import ResponseFormatter
 
 class AgentCoordinator:
     """
@@ -11,6 +13,7 @@ class AgentCoordinator:
     
     def __init__(self):
         self.product_agent = ProductAgent()
+        self.intent_classifier = IntentClassifier()
         
         # Template for context generation and model selection
         self.context_template = ChatPromptTemplate.from_template("""You are an expert at analyzing skincare questions and extracting relevant product information.
@@ -90,6 +93,7 @@ Only respond with the JSON, nothing else.""")
         agents_to_use.append(self.product_agent)
         # For now, just use the first capable agent
         agent = agents_to_use[0]
+        intent = self.intent_classifier.classify_intent(question)
         
         try:
             self._select_model(intent["requires_realtime"])
