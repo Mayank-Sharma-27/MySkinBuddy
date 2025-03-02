@@ -21,8 +21,7 @@ class ModelService:
         Args:
             model_name (str): Name of the model to use
         """
-        if self._llm_model is None or self._llm_model.model != model_name:
-            self._llm_model = ChatTogether(
+        self._llm_model = ChatTogether(
                 model=model_name,
                 top_p=0.85,
                 temperature=0.2,
@@ -30,7 +29,7 @@ class ModelService:
                 timeout=30,
                 max_retries=3,
                 streaming=True
-            )
+        )
         return self._llm_model
 
     def get_embeddings_model(self, model_name="text-embedding-3-small"):

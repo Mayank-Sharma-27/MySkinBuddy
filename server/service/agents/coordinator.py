@@ -1,6 +1,6 @@
 from typing import Dict, Generator, List
 from .product_agent import ProductAgent
-from ..model_service import llm
+from ..model_service import llm, model_service
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from ..intent_classifier import IntentClassifier
@@ -13,7 +13,8 @@ class AgentCoordinator:
     
     def __init__(self):
         self.product_agent = ProductAgent()
-        self.intent_classifier = IntentClassifier()
+        self.model_service = model_service
+        self.intent_classifier = IntentClassifier(self.model_service)
         
         # Template for context generation and model selection
         self.context_template = ChatPromptTemplate.from_template("""You are an expert at analyzing skincare questions and extracting relevant product information.
