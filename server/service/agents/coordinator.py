@@ -105,7 +105,10 @@ Only respond with the JSON, nothing else.""")
             yield chunk 
             
     def _select_model(self, requires_realtime: bool):
-        self.product_agent.model = self.model_service.get_llm_model(requires_realtime)
+        if requires_realtime:
+            self.product_agent.model = self.model_service.get_llm_model()
+        else:
+            self.product_agent.model = self.model_service.get_perplexity_model()
     
     def  _format_off_topic_response(self):
         return ResponseFormatter.format_chunk(
