@@ -9,14 +9,17 @@ import {
 } from "react";
 import { getCookieId } from "../utils/cookies";
 import { API_URL } from "../config";
+import { UserProfile } from "../api/userProfile";
 
 interface AuthContextType {
   isLoggedIn: boolean;
   userEmail: string | null;
   userName: string | null;
+  userProfile: UserProfile | null;
   setLoggedIn: (email: string, name: string) => void;
   setLoggedOut: () => void;
   checkAuthStatus: () => Promise<void>;
+  updateUserProfile: (profile: UserProfile) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const checkAuthStatus = async () => {
     try {
@@ -56,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoggedIn,
     userEmail,
     userName,
+    userProfile,
     setLoggedIn: (email: string, name: string) => {
       setIsLoggedIn(true);
       setUserEmail(email);
@@ -65,8 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoggedIn(false);
       setUserEmail(null);
       setUserName(null);
+      setUserProfile(null);
     },
     checkAuthStatus,
+    updateUserProfile: (profile: UserProfile) => {
+      setUserProfile(profile);
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

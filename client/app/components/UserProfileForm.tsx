@@ -23,7 +23,7 @@ const commonSkinIssues = [
 ];
 
 export default function UserProfileForm() {
-  const { userProfile } = useAuth();
+  const { userProfile, updateUserProfile } = useAuth();
   const [profile, setProfile] = useState<UserProfile>(
     userProfile || {
       skin_type: "",
@@ -47,7 +47,7 @@ export default function UserProfileForm() {
       setHasAttemptedLoad(true);
       loadProfile();
     }
-  }, [userProfile]);
+  }, [userProfile, hasAttemptedLoad]);
 
   const loadProfile = async () => {
     try {
@@ -68,6 +68,8 @@ export default function UserProfileForm() {
       await saveUserProfile(profile);
       setSuccess("Profile saved successfully!");
       setIsEditing(false);
+      // Update the context with the new profile
+      updateUserProfile(profile);
       // Reload the profile to ensure we have the latest data
       await loadProfile();
     } catch (err) {
