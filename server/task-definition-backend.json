@@ -73,7 +73,7 @@
                 },
                 {
                     "name": "GOOGLE_VISION_CREDENTIALS",
-                    "valueFrom": "google/vision-api-credentials"
+                    "valueFrom": "/myskinbuddy/GOOGLE_VISION_CREDENTIALS"
                 }
             ],
             "logConfiguration": {
