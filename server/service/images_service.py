@@ -12,22 +12,19 @@ class ImagesService:
         self._setup_google_credentials()
 
     def _setup_google_credentials(self):
-        """Fetch Google credentials from AWS Secrets Manager and set them up"""
+        """Fetch Google credentials from AWS SSM Parameter Store and set them up"""
         try:
-            # Get the credentials from Secrets Manager
-            secrets_client = boto3.client('secretsmanager')
-            secret_id = os.getenv('GOOGLE_VISION_CREDENTIALS', 'google/vision-api-credentials')
+            # Get the credentials from SSM Parameter Store
+            ssm_client = boto3.client('ssm')
+            param_name = os.getenv('GOOGLE_VISION_CREDENTIALS', '/myskinbuddy/GOOGLE_VISION_CREDENTIALS')
             
-            # Handle ARN format if present
-            if secret_id.startswith('arn:aws:secretsmanager:'):
-                # Extract just the secret name from the ARN
-                parts = secret_id.split(':secret:')
-                if len(parts) > 1:
-                    secret_id = parts[1]
-            
-            print(f"Using secret ID: {secret_id}")
-            response = secrets_client.get_secret_value(SecretId=secret_id)
-            credentials_json = json.loads(response['SecretString'])
+            # If it's not a path (doesn't start with /), assume it's the old format and prepend the path
+            if not param_name.startswith('/'):
+                param_name = f'/myskinbuddy/{param_name}'
+                
+            print(f"Using SSM parameter: {param_name}")
+            response = ssm_client.get_parameter(Name=param_name, WithDecryption=True)
+            credentials_json = json.loads(response['Parameter']['Value'])
             
             # Create a temporary file to store the credentials
             # Vision API client needs a file path
@@ -90,7 +87,7 @@ class ImagesService:
             image = vision.Image(content=image_content)
             
             # Perform text detection
-            response = client.text_detection(image=image)
+            response = client.document_text_detection(image=image)
             
             if not response.text_annotations:
                 return {"extracted_text": ""}
