@@ -73,7 +73,7 @@
                 },
                 {
                     "name": "GOOGLE_VISION_CREDENTIALS",
-                    "valueFrom": "/myskinbuddy/GOOGLE_VISION_CREDENTIALS"
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:117669335220:secret:google/vision-api-credentials"
                 }
             ],
             "logConfiguration": {

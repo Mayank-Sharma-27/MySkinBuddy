@@ -124,7 +124,6 @@ class ImagesService:
     def get_file_path(self, file_name: str):
         return f'image-searches/{file_name}'       
         
-
 from service.s3_client import get_s3_client
 from typing import Dict
 from google.cloud import vision
@@ -252,3 +251,4 @@ class ImagesService:
     def get_file_path(self, file_name: str):
         return f'image-searches/{file_name}'       
         
+
