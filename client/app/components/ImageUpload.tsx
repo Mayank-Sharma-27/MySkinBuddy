@@ -136,7 +136,7 @@ export function ImageUpload({ onTextExtracted, userEmail }: ImageUploadProps) {
             d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
           />
         </svg>
-        {isLoading ? "Processing..." : "Take Photo"}
+        {isLoading ? "Processing..." : "Search with Photo"}
       </button>
 
       {error && (
