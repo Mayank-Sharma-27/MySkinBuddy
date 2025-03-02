@@ -14,20 +14,7 @@ class ImagesService:
     def _setup_google_credentials(self):
         """Fetch Google credentials from AWS SSM Parameter Store and set them up"""
         try:
-            # Get the credentials from SSM Parameter Store
-            ssm_client = boto3.client('ssm')
-            param_name = os.getenv('GOOGLE_VISION_CREDENTIALS', '/myskinbuddy/GOOGLE_VISION_CREDENTIALS')
-            
-            # If it's not a path (doesn't start with /), assume it's the old format and prepend the path
-            if not param_name.startswith('/'):
-                param_name = f'/myskinbuddy/{param_name}'
-                
-            print(f"Using SSM parameter: {param_name}")
-            response = ssm_client.get_parameter(Name=param_name, WithDecryption=True)
-            credentials_json = json.loads(response['Parameter']['Value'])
-            
-            # Create a temporary file to store the credentials
-            # Vision API client needs a file path
+            credentials_json = json.loads(os.getenv('GOOGLE_VISION_CREDENTIALS', '/myskinbuddy/GOOGLE_VISION_CREDENTIALS'))
             with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
                 json.dump(credentials_json, temp_file)
                 self.credentials_path = temp_file.name
