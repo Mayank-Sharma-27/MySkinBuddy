@@ -175,7 +175,6 @@ How can I assist you today?"""
             
             # Save the complete response with citations
             full_response = accumulated_response + accumulated_citations
-            # Remove think sections before saving to chat history
             cleaned_response = re.sub(r'<think>[\s\S]*?</think>', '', full_response, flags=re.DOTALL).strip()
             chat_data["chat_history"].append({
                 "role": "assistant",
