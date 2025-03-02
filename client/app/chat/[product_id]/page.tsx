@@ -106,7 +106,6 @@ export default function ChatPage({ params }: PageProps) {
 
               if (startChatResponse.ok) {
                 const data = await startChatResponse.json();
-                console.log("Start chat response:", data);
                 if (data.status === "success" && data.chat_data) {
                   setChatData(data.chat_data);
                 } else {

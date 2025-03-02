@@ -1,9 +1,10 @@
 from typing import Dict, Generator, List
-from .base_agent import BaseAgent
 from .product_agent import ProductAgent
 from ..model_service import llm
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
+from ..intent_classifier import IntentClassifier
+from ..utils.response_formatter import ResponseFormatter
 
 class AgentCoordinator:
     """
@@ -12,6 +13,7 @@ class AgentCoordinator:
     
     def __init__(self):
         self.product_agent = ProductAgent()
+        self.intent_classifier = IntentClassifier()
         
         # Template for context generation and model selection
         self.context_template = ChatPromptTemplate.from_template("""You are an expert at analyzing skincare questions and extracting relevant product information.
@@ -91,6 +93,23 @@ Only respond with the JSON, nothing else.""")
         agents_to_use.append(self.product_agent)
         # For now, just use the first capable agent
         agent = agents_to_use[0]
+        intent = self.intent_classifier.classify_intent(question)
         
-        for chunk in agent.process(question, context, chat_history):
+        try:
+            self._select_model(intent["requires_realtime"])
+        except Exception as e:#
+            print(f"Error selecting model: {e}")
+            yield self._format_off_topic_response()
+            return
+        
+        for chunk in self.product_agent.process(question, context, chat_history):
             yield chunk 
+            
+    def _select_model(self, requires_realtime: bool):
+        self.product_agent.model = self.model_service.get_llm_model(requires_realtime)
+    
+    def  _format_off_topic_response(self):
+        return ResponseFormatter.format_chunk(
+                    "I apologize, but I can only assist with questions related to skincare, beauty products, and skin health. "
+                    "Please feel free to ask me anything about these topics!"
+                )

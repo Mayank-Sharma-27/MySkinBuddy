@@ -14,11 +14,25 @@ const config: Config = {
     "border-gray-300",
     "ring-primary-500",
     "border-primary-500",
+    "bg-red-50",
+    "text-red-600",
+    "bg-green-50",
+    "text-green-600",
+    "line-clamp-1",
+    "line-clamp-2",
+    "leading-none",
+    "items-start",
     {
       pattern: /^(bg|text|border|ring)-primary-\d00/,
     },
     {
       pattern: /^(bg|text|border|ring)-gray-\d00/,
+    },
+    {
+      pattern: /^(bg|text|border|ring)-red-\d00/,
+    },
+    {
+      pattern: /^(bg|text|border|ring)-green-\d00/,
     },
     "flex",
     "flex-col",
