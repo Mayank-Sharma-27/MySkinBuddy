@@ -12,7 +12,6 @@ import re
 from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import time
-import cloudscraper
 
 
 load_dotenv()
@@ -216,7 +215,7 @@ def rescrape_products():
         total_processed = 0
         target_products = 70000  # Total number of products to process
         
-        scraper = cloudscraper.create_scraper()
+        scraper = None
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
             "Accept-Language": "en-US,en;q=0.9",
