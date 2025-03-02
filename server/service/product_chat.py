@@ -58,56 +58,6 @@ class ProductChat:
 
     def _create_welcome_message(self, product_metadata: dict) -> str:
         """
-        Check if the message content is relevant to skincare topics.
-        Returns True if content is relevant, False otherwise.
-        """
-        product_name = product_metadata.get("product")
-        brand_name = product_metadata.get("brand")
-        
-        # Create subtitle parts
-        subtitle_parts = []
-        if product_metadata.get("where_it_from") and product_metadata.get("where_it_from") != "Unknown":
-            subtitle_parts.append(f"A product of {product_metadata.get('where_it_from')}")
-        
-        if product_metadata.get("notable_ingredients") and product_metadata.get("notable_ingredients") != "Unknown":
-            notable_ingredients = product_metadata.get("notable_ingredients")
-            if isinstance(notable_ingredients, list) and notable_ingredients:
-                subtitle_parts.append(f"with {', '.join(notable_ingredients[:3])}")
-        
-        subtitle = " ".join(subtitle_parts) if subtitle_parts else ""
-        
-        # Format product details sections
-        benefits = product_metadata.get("benefits", [])
-        benefits_text = "\n".join([f"• {benefit}" for benefit in benefits]) if benefits else "No specific benefits listed"
-        
-        concerns = product_metadata.get("concerns", [])
-        concerns_text = "\n".join([f"• {concern}" for concern in concerns]) if concerns else "No specific concerns listed"
-        
-        notable_ingredients = product_metadata.get("notable_ingredients", [])
-        ingredients_text = "\n".join([f"• {ingredient}" for ingredient in notable_ingredients]) if notable_ingredients else "No notable ingredients listed"
-        
-        # Construct the welcome message
-        welcome_msg = f"""Hi! I am your personalized skincare buddy. I'm here to help you with {product_name} by {brand_name}.
-
-{subtitle}
-
-**Key Product Information:**
-
-**Benefits:**
-{benefits_text}
-
-**Concerns Addressed:**
-{concerns_text}
-
-**Notable Ingredients:**
-{ingredients_text}
-
-How can I assist you today?"""
-
-        return welcome_msg
-
-    def _create_welcome_message(self, product_metadata: dict) -> str:
-        """
         Creates a detailed welcome message with product information including subtitle, benefits, concerns, and ingredients.
         """
         product_name = product_metadata.get("product")
