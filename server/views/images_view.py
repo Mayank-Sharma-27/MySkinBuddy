@@ -5,7 +5,6 @@ images_view = Blueprint('images_view', __name__)
 images_service = ImagesService()
 @images_view.route('/upload-image', methods=['POST'])
 def get_upload_url():
-    print(request.get_json())
     data = request.get_json()
     image_information = data.get('image_information')
     if not data:
