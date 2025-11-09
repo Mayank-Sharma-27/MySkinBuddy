@@ -151,7 +151,6 @@ How can I assist you today?"""
                 "content": message,
                 "timestamp": datetime.utcnow().isoformat()
             })
-            self.chat_service.save_chat(cookie_id, product_id, chat_data)
             
             context = chat_data.get("preloaded_context")
             

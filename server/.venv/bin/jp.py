@@ -1,4 +1,4 @@
-#!/Users/mayank/workspace/MySkinBuddy/server/.venv/bin/python3
+#!/Users/mayank/workspace/MySkinBuddy/server/.venv/bin/python3.11
 
 import sys
 import json
